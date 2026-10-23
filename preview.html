@@ -271,6 +271,9 @@ table.pairs th { color: var(--muted); }
       <h2>選一隊加入（每隊最多 16 人）</h2>
       <div class="pick" id="pick"></div>
       <p class="muted" id="joinMsg"></p>
+      <h2>還沒開始？先自己練習</h2>
+      <p class="muted">電腦會扮演老師派無人機、砲擊和攻擊直升機；不用加入隊伍、老師沒開也能練。</p>
+      <div class="row2"><button class="btn go pxD" style="--c:#7fe08a">單人練習：當駕駛</button><button class="btn go pxG" style="--c:#ffb15a">單人練習：當射手</button></div>
       <button class="btn swRow sndAny"></button>
       <button class="btn swRow invBtn"></button>
       <button class="btn backrole" hidden>回到選擇身分</button>
@@ -282,7 +285,7 @@ table.pairs th { color: var(--muted); }
       <h1 id="wTitle">等待老師開始</h1>
       <p id="wText"></p>
       <div class="livebox" id="wLive" hidden></div>
-      <div class="row2" id="pxRow"><button class="btn go" id="pxDrive" style="--c:#7fe08a">單人練習：當駕駛</button><button class="btn go" id="pxGun" style="--c:#ffb15a">單人練習：當射手</button></div>
+      <div class="row2" id="pxRow"><button class="btn go pxD" id="pxDrive" style="--c:#7fe08a">單人練習：當駕駛</button><button class="btn go pxG" id="pxGun" style="--c:#ffb15a">單人練習：當射手</button></div>
       <button class="btn swRow sndAny"></button>
       <button class="btn swRow invBtn"></button>
       <button class="btn" id="qBtn">畫質：省電</button>
@@ -348,7 +351,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.3（手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.4（選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 const Q = new URLSearchParams(location.search);
 const LOCAL = true; // 預覽頁：只用同一台電腦練習連線
@@ -2142,20 +2145,22 @@ function stopPractice(showRes) {
   const v = myVeh(); const r = v ? { role: SS.pxRole, arr: v.st === 2, cargo: Math.round(v.cargo), sec: Math.round(W.el), ...v.stats } : null;
   SS.practice = false; SS.mode = 'idle'; SS.fireHeld = false; heliStop(); simReset(); hideVehicles(); W.veh = []; ME.vi = -1; ME.role = '';
   $('hudD').hidden = true; $('hudG').hidden = true; document.querySelectorAll('.pxEnd').forEach(b => b.hidden = true); for (const m of ringPool) m.visible = false; marksDone(0);
-  if (showRes && r) showPracticeResult(r); else onMeta();
+  if (showRes && r) showPracticeResult(r); else afterPractice();
 }
+// 練習結束：已加入隊伍就回等待畫面，還沒加入就回選隊畫面
+function afterPractice() { if (ME.team < 0) { setMode('menu'); show('scrJoin'); renderPick(); } else onMeta(); }
 function showPracticeResult(r) {
   const c = r.arr ? r.cargo : 0;
   const say = !r.arr ? '沒有抵達終點，補給沒送到。' : c >= 85 ? '幾乎完整送達！' : c >= 60 ? '送到大半，不錯。' : c >= 30 ? '只剩一半不到。' : '補給幾乎全毀。';
   let h = `<h1>練習結果：${r.role === 'drive' ? '駕駛' : '射手'}</h1><h2>${say}</h2>`;
   h += `<div class="stats"><div><b>${r.arr ? c + '%' : '沒送到'}</b><span>送達補給</span></div><div><b>${r.hits}</b><span>被重擊</span></div><div><b>${r.downs}</b><span>失去動力</span></div><div><b>${r.dodges}</b><span>閃過無人機</span></div><div><b>${r.kills}</b><span>擊落無人機</span></div><div><b>${r.heli}</b><span>飛彈命中直升機</span></div></div>`;
   h += knowHtml(1 + Math.floor(R() * KNOW.length));
-  h += `<div class="row2"><button class="btn go" id="pxAgainD" style="--c:#7fe08a">再練一次：駕駛</button><button class="btn go" id="pxAgainG" style="--c:#ffb15a">再練一次：射手</button></div><button class="btn" id="pxBack">回到等待畫面</button>`;
+  h += `<div class="row2"><button class="btn go" id="pxAgainD" style="--c:#7fe08a">再練一次：駕駛</button><button class="btn go" id="pxAgainG" style="--c:#ffb15a">再練一次：射手</button></div><button class="btn" id="pxBack">${ME.team < 0 ? '回到選隊畫面' : '回到等待畫面'}</button>`;
   $('resCard').innerHTML = h; setMode('menu'); show('scrRes');
-  $('pxAgainD').onclick = () => startPractice('drive'); $('pxAgainG').onclick = () => startPractice('gun'); $('pxBack').onclick = () => onMeta();
+  $('pxAgainD').onclick = () => startPractice('drive'); $('pxAgainG').onclick = () => startPractice('gun'); $('pxBack').onclick = () => afterPractice();
 }
-$('pxDrive').onclick = () => startPractice('drive');
-$('pxGun').onclick = () => startPractice('gun');
+document.querySelectorAll('.pxD').forEach(b => b.onclick = () => startPractice('drive'));
+document.querySelectorAll('.pxG').forEach(b => b.onclick = () => startPractice('gun'));
 document.querySelectorAll('.pxEnd').forEach(b => b.onclick = () => stopPractice(true));
 window.onDodge = (v) => { if (ROLE === 'student' && v.vi === ME.vi && ME.role === 'drive') { flash('dGood', '閃過了！', 1.4); SFX.good(); } };
 

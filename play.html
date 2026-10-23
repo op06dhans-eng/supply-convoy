@@ -348,7 +348,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.2（直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.3（手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 const Q = new URLSearchParams(location.search);
 const LOCAL = Q.has('local') || !FIREBASE_CONFIG.databaseURL;
@@ -2364,6 +2364,10 @@ function leaveHeli() { heliStop(); setTeacherView('map'); SNAPCAM = true; }
 window.onHeliDown = () => { tmsg('直升機被擊傷，撤退維修 45 秒'); setTimeout(() => { if (TS.view === 'heli') { setTeacherView('map'); SNAPCAM = true; } }, 3000); };
 window.onWingCmd = (tv, n) => { if (ROLE !== 'teacher') return; tmsg(!n ? '兩架僚機都被打下來了，等一下會補充' : tv ? `僚機出擊 → ${TEAMS[tv.team].name} ${tv.no} 號車（攻擊 12 秒）` : '準星附近沒有車：先把準星對準一台車，再按僚機攻擊'); SFX.click(); };
 window.onBoom = (p, size) => { if (ROLE !== 'teacher' || TS.view !== 'heli') return; const d = p.distanceTo(camera.position); if (size >= 3 && d < 220) TS.shake = Math.max(TS.shake || 0, 0.7 * (1 - d / 220)); };
+// 手機轉向（直放↔橫放）或視窗大小改變時，準星可能落在畫面外：手機放回畫面中間，電腦則收回畫面內
+let lastW = innerWidth, lastH = innerHeight;
+function keepCross() { if (innerWidth === lastW && innerHeight === lastH) return; const rot = (innerWidth > innerHeight) !== (lastW > lastH); lastW = innerWidth; lastH = innerHeight; if (TOUCH && rot) { MOUSE.x = innerWidth / 2; MOUSE.y = innerHeight * 0.5; } MOUSE.x = clamp(MOUSE.x, 20, innerWidth - 20); MOUSE.y = clamp(MOUSE.y, 20, innerHeight - 20); }
+addEventListener('resize', keepCross); addEventListener('orientationchange', () => setTimeout(keepCross, 300));
 function tmsg(t) { TS.msg = t; TS.msgT = 3.5; }
 $('vSwitch').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.v === 'map') { if (TS.view === 'heli') leaveHeli(); } else if (b.dataset.v === 'heli') { if (TS.view !== 'heli') takeHeli(); } else if (b.dataset.v === 'panel') { $('tPanel').hidden = !$('tPanel').hidden; } else showHelp(); });
 function showHelp() {
@@ -2520,7 +2524,7 @@ function teacherHud(dt, now) {
     else setHTML('mCmd', `<h2>補給公路</h2><small>學生用手機掃 QR Code 加入，在左邊面板按「上場」開始一輪。<br>開始後這裡會變成敵方指揮所：派無人機、下令砲擊、搭乘攻擊直升機。</small>`);
   } else {
     setHTML('hTeamBars', `<div>${timeTxt}</div>` + bars);
-    const cr = $('hCross'); cr.classList.toggle('lk', !!TS.lockV);
+    keepCross(); const cr = $('hCross'); cr.classList.toggle('lk', !!TS.lockV);
     if (TS.lockV) { const q = proj(TS.lockV.obj.root.position.clone().add(V(0, 1.5, 0))); cr.style.left = q.x + 'px'; cr.style.top = q.y + 'px'; const el = tag(ti++); el.className = 'vtag sel'; el.style.left = q.x + 'px'; el.style.top = (q.y + 62) + 'px'; el.innerHTML = `<b style="color:#ffd84a">已對準 ${TEAMS[TS.lockV.team].s}${TS.lockV.no}</b>`; }
     else { cr.style.left = MOUSE.x + 'px'; cr.style.top = MOUSE.y + 'px'; }
     const wst = W.wing.map((w, k) => { const tv = w.tvi >= 0 ? W.veh[w.tvi] : null; return `${k ? '②' : '①'}${w.alive ? (w.mode === 'attack' && tv ? `攻擊 ${TEAMS[tv.team].s}${tv.no}（${Math.ceil(w.t)} 秒）` : '跟在旁邊待命') : `被擊落，${Math.ceil(w.respawn)} 秒後補充`}`; }).join('<br>');

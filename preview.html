@@ -386,7 +386,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.6.3（直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.6.4（開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 const Q = new URLSearchParams(location.search);
 const LOCAL = true; // 預覽頁：只用同一台電腦練習連線
@@ -1288,10 +1288,19 @@ function driveStep(v, dt, inp, others) {
     v.blocked = gap < 13 && lv < 6;
     const acc = want > v.v ? 3.6 : inp.brake ? 11 : 6; v.v += clamp(want - v.v, -acc * dt, acc * dt);
   }
-  // 換車道約 0.8 秒（有慣性）
-  if (v.laneT < 1) { v.laneT = Math.min(1, v.laneT + dt / 0.8); const k = v.laneT * v.laneT * (3 - 2 * v.laneT); v.x = v.x0 + (laneX(v.lane) - v.x0) * k; }
+  // 學生自己開：按住 ◀ ▶ 才往旁邊移動，放開就停在當下的位置（不會自動對齊車道中央）
+  const human = inp.l !== undefined && v.st === 0;
+  if (human) {
+    const steer = (inp.r ? 1 : 0) - (inp.l ? 1 : 0); const want = steer * LAT_SPD;
+    const acc = steer ? 22 : 40; v.vlat = (v.vlat || 0) + clamp(want - (v.vlat || 0), -acc * dt, acc * dt);
+    const lo = laneX(0) - 0.8, hi = laneX(NL - 1) + 0.8; v.x = clamp(v.x + v.vlat * dt, lo, hi); if (v.x === lo || v.x === hi) v.vlat = 0;
+    v.lane = laneOf(v.x); v.laneT = 1;
+  } else v.vlat = 0;
+  // 電腦開車（或抵達後停車）：換車道約 0.8 秒（有慣性）
+  if (!human && v.laneT < 1) { v.laneT = Math.min(1, v.laneT + dt / 0.8); const k = v.laneT * v.laneT * (3 - 2 * v.laneT); v.x = v.x0 + (laneX(v.lane) - v.x0) * k; }
   v.d += v.v * dt;
 }
+const LAT_SPD = 6; // 按住方向鍵時橫向移動的速度（公尺／秒），一條車道寬 3.8 公尺
 function parkD(k) { return FINISH + 45 + Math.floor(k / NL) * 13; }
 function parkLane(k) { return k % NL; }
 function setLane(v, lane) { lane = clamp(lane, 0, NL - 1); if (v.lane === lane || v.st === 1) return false; v.x0 = v.x; v.lane = lane; v.laneT = 0; return true; }
@@ -1852,7 +1861,7 @@ const meStore = NET.local ? { get(k, d) { try { const v = sessionStorage.getItem
 if (!ME.pid) { ME.pid = 'p' + Math.random().toString(36).slice(2, 9); pidStore.set('pid', ME.pid); }
 let META = {}, PLAYERS = {}, CREW = [], RES = null, LIVE = null, rejoinT = 0;
 let INVY = store.get('invy', false);
-const SS = { mode: 'idle', round: 0, wUnsub: null, vdUnsub: null, snapT: 0, sendT: 0, gotSnap: false, segName: '', tipT: 0, warnT: 0, goodT: 0, msgQ: [], shake: 0, hitA: 0, jamCool: 0, heat: 0, over: false, fireHeld: false, lockT: 0, aimY: 0, aimP: 0.15, hitCnt: new Map(), wHit: [0, 0], hHit: 0, batchT: 0, whistled: new Set(), lastArrMsg: false, inp: { gas: false, brake: false } };
+const SS = { mode: 'idle', round: 0, wUnsub: null, vdUnsub: null, snapT: 0, sendT: 0, gotSnap: false, segName: '', tipT: 0, warnT: 0, goodT: 0, msgQ: [], shake: 0, hitA: 0, jamCool: 0, heat: 0, over: false, fireHeld: false, lockT: 0, aimY: 0, aimP: 0.15, hitCnt: new Map(), wHit: [0, 0], hHit: 0, batchT: 0, whistled: new Set(), lastArrMsg: false, inp: { gas: false, brake: false, l: false, r: false } };
 function show(id) { for (const s of ['scrRole', 'scrJoin', 'scrWait', 'scrCount', 'scrRes']) $(s).hidden = s !== id; }
 function myVeh() { return ME.vi >= 0 ? W.veh[ME.vi] : null; }
 function teamCounts() { const n = [0, 0, 0, 0]; for (const k in PLAYERS) { const t = PLAYERS[k] && PLAYERS[k].team; if (t >= 0 && t < 4) n[t]++; } return n; }
@@ -1957,7 +1966,7 @@ function countScreen() {
   const c = CREW[ME.vi]; const t = TEAMS[c.t]; const partner = ME.role === 'drive' ? c.gc : c.dc;
   $('cTeam').innerHTML = `<b style="color:${t.c}">${t.name} ${c.n} 號車</b>　搭檔：${partner || '電腦'}`;
   $('cRole').innerHTML = ME.role === 'drive' ? '你是<span style="color:#7fe08a">駕駛</span>' : '你是<span style="color:#ffb15a">射手</span>';
-  $('cHow').innerHTML = (ME.role === 'drive' ? '按 ◀ ▶ 換車道閃無人機和砲擊，右邊踩油門、煞車。黃圈變紅圈、紅圈縮到最小的時候閃最有效。干擾器能讓無線電無人機失控。' : '手指在畫面上拖曳轉動機槍，按住「開火」射擊，槍管太熱要停一下。把直升機放在準星中間 2.5 秒會鎖定，再按「防空飛彈」發射。') + (innerHeight > innerWidth ? '<br><b>把手機橫過來玩，畫面比較大。</b>' : '');
+  $('cHow').innerHTML = (ME.role === 'drive' ? '按住 ◀ ▶ 往左右移動，閃無人機和砲擊（放開就停在原位），右邊踩油門、煞車。黃圈變紅圈、紅圈縮到最小的時候閃最有效。干擾器能讓無線電無人機失控。' : '手指在畫面上拖曳轉動機槍，按住「開火」射擊，槍管太熱要停一下。把直升機放在準星中間 2.5 秒會鎖定，再按「防空飛彈」發射。') + (innerHeight > innerWidth ? '<br><b>把手機橫過來玩，畫面比較大。</b>' : '');
   setMode(ME.role === 'drive' ? 'drive' : 'gun'); show('scrCount'); $('hudD').hidden = true; $('hudG').hidden = true;
   tickCount();
 }
@@ -1972,13 +1981,13 @@ function startRun() {
 function stopRun() {
   if (SS.mode === 'idle') return;
   SS.mode = 'idle'; if (SS.wUnsub) { SS.wUnsub(); SS.wUnsub = null; } if (SS.vdUnsub) { SS.vdUnsub(); SS.vdUnsub = null; }
-  $('hudD').hidden = true; $('hudG').hidden = true; SS.fireHeld = false;
+  $('hudD').hidden = true; $('hudG').hidden = true; SS.fireHeld = false; SS.inp.l = SS.inp.r = false;
   if (ME.vi >= 0) { NET.remove('vd/' + ME.vi); NET.remove('vg/' + ME.vi); }
 }
 
 /* ---------- 操作 ---------- */
 function hold(id, on, off) { const b = $(id); b.addEventListener('pointerdown', (e) => { e.preventDefault(); b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch (_) {} on(); }); const up = () => { b.classList.remove('on'); off && off(); }; b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up); }
-hold('bL', () => laneInput(-1)); hold('bR', () => laneInput(1));
+hold('bL', () => { SS.inp.l = true; }, () => { SS.inp.l = false; }); hold('bR', () => { SS.inp.r = true; }, () => { SS.inp.r = false; });
 hold('bGas', () => { SS.inp.gas = true; }, () => { SS.inp.gas = false; });
 hold('bBrake', () => { SS.inp.brake = true; }, () => { SS.inp.brake = false; });
 hold('bJam', () => jamInput());
@@ -2005,10 +2014,10 @@ addEventListener('pointercancel', (e) => { if (e.pointerId === DRAG.id) DRAG.id 
 // 電腦上測試用：鍵盤
 addEventListener('keydown', (e) => {
   if (ROLE !== 'student' || !live()) return;
-  if (ME.role === 'drive') { if (e.code === 'ArrowLeft' || e.code === 'KeyA') laneInput(-1); if (e.code === 'ArrowRight' || e.code === 'KeyD') laneInput(1); if (e.code === 'ArrowUp' || e.code === 'KeyW') SS.inp.gas = true; if (e.code === 'ArrowDown' || e.code === 'KeyS') SS.inp.brake = true; if (e.code === 'Space') jamInput(); }
+  if (ME.role === 'drive') { if (e.code === 'ArrowLeft' || e.code === 'KeyA') SS.inp.l = true; if (e.code === 'ArrowRight' || e.code === 'KeyD') SS.inp.r = true; if (e.code === 'ArrowUp' || e.code === 'KeyW') SS.inp.gas = true; if (e.code === 'ArrowDown' || e.code === 'KeyS') SS.inp.brake = true; if (e.code === 'Space') jamInput(); }
   else { if (e.code === 'Space') SS.fireHeld = true; if (e.code === 'KeyM') mslInput(); }
 });
-addEventListener('keyup', (e) => { if (e.code === 'ArrowUp' || e.code === 'KeyW') SS.inp.gas = false; if (e.code === 'ArrowDown' || e.code === 'KeyS') SS.inp.brake = false; if (e.code === 'Space') SS.fireHeld = false; });
+addEventListener('keyup', (e) => { if (e.code === 'ArrowLeft' || e.code === 'KeyA') SS.inp.l = false; if (e.code === 'ArrowRight' || e.code === 'KeyD') SS.inp.r = false; if (e.code === 'ArrowUp' || e.code === 'KeyW') SS.inp.gas = false; if (e.code === 'ArrowDown' || e.code === 'KeyS') SS.inp.brake = false; if (e.code === 'Space') SS.fireHeld = false; });
 
 /* ---------- 第一次遇到某種狀況時跳出的小提示（每個只出現一次） ---------- */
 const TIPS = new Set();
@@ -2131,7 +2140,7 @@ function driveHud(v, dt, now) {
     // 鎖定前：圈圈跟著車（黃圈＝被瞄準；紅圈越縮越小＝快撞上了）；鎖定後：圈圈停在路上，趕快開出圈外
     if (dr.lock) { pos = dr.a; r = 3; m.material.color.set(0xff3020); m.material.opacity = (T * 3) % 1 < 0.6 ? 0.95 : 0.45; red = true; }
     else { pos = myPos; if (tti < DRONE.redT) { r = 3 + Math.max(0, tti - DRONE.lockT) / (DRONE.redT - DRONE.lockT) * 5; m.material.color.set(0xff3020); red = true; m.material.opacity = 0.95; } else { r = 6.5; m.material.color.set(0xffd040); m.material.opacity = 0.85; yellow = true; } }
-    m.position.set(pos.x, 0.2, pos.z); m.scale.setScalar(r); alarm = alarm || tti < DRONE.redT; tip('ring', '黃圈＝無線電無人機正在瞄準你們。等圈變紅、縮到最小時按 ◀ 或 ▶ 換車道；也可以按干擾器讓它失控。');
+    m.position.set(pos.x, 0.2, pos.z); m.scale.setScalar(r); alarm = alarm || tti < DRONE.redT; tip('ring', '黃圈＝無線電無人機正在瞄準你們。等圈變紅、縮到最小時按住 ◀ 或 ▶ 往旁邊閃；也可以按干擾器讓它失控。');
     markAt(host, mi++, dr.rp, '▼', 'red');
   }
   for (; ri < ringPool.length; ri++) ringPool[ri].visible = false;
@@ -2256,7 +2265,7 @@ function startPractice(role) {
   const t = ME.team >= 0 ? ME.team : 1; const crew = [1, 2, 3, 4].map(n => ({ t, n, d: '', g: '', dc: '', gc: '' }));
   simReset(); W.seen.clear(); initVehicles(crew); W.el = 0; W.t0 = NET.now(); SIM.diff = 1; SIM.auto = true; aiHeliReset();
   ME.vi = 0; ME.role = role; const v = W.veh[0]; if (role === 'drive') v.localDrive = true; else v.localGun = true;
-  Object.assign(SS, { whistled: new Set(), lastArrMsg: false, over: false, heat: 0, lockT: 0, camInit: false, fireHeld: false, jamCool: 0, segName: '' }); SS.hitCnt.clear(); SS.inp.gas = SS.inp.brake = false;
+  Object.assign(SS, { whistled: new Set(), lastArrMsg: false, over: false, heat: 0, lockT: 0, camInit: false, fireHeld: false, jamCool: 0, segName: '' }); SS.hitCnt.clear(); SS.inp.gas = SS.inp.brake = SS.inp.l = SS.inp.r = false;
   SS.aimY = headingAt(v.d); SS.aimP = 0.15; PX.endT = 0;
   setMode(role === 'drive' ? 'drive' : 'gun'); show(null);
   $('hudD').hidden = role !== 'drive'; $('hudG').hidden = role !== 'gun';

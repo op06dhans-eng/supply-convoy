@@ -381,7 +381,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.7.2（拿掉車道指示；提示一次一則、不擋畫面；卡車速度再提高 20%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.7.3（修正進隧道後看不到車：鏡頭在隧道、防護網、偽裝網底下自動降低，指揮地圖拿掉隧道頂；拿掉車道指示；提示一次一則、不擋畫面；卡車速度再提高 20%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 (function checkNewer() {
   const mine = VERSION.split('（')[0];
@@ -559,6 +559,7 @@ M.lampW = new THREE.MeshStandardMaterial({ color: 0xfff1d0, emissive: 0xfff1d0, 
 M.water = new THREE.MeshStandardMaterial({ color: 0x27343c, roughness: 0.08, metalness: 0.5 });
 M.crater = new THREE.MeshStandardMaterial({ map: craterTex, transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, ...vc });
 M.lod = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0.15, ...vc });
+for (const k in M) M[k].name = k;
 const COL = { white: 0xffffff, olive: 0xb4bb92, oliveDark: 0x858c66, dark: 0x1a1c1c, black: 0x0c0d0d, glass: 0x1d2a30, wood: 0x5b4a36, burnt: 0x403630, sand: 0xa69a78, metal: 0x50565a };
 
 /* ---------- 路線：每 1 公尺取一點 ---------- */
@@ -645,6 +646,11 @@ const GX0 = -900, GX1 = 2800, GZ0 = -2100, GZ1 = 600;
 }
 
 /* ---------- 沿路線的帶狀網格 ---------- */
+const TUNROOF = [];
+function setTunnelRoof(on) { for (const m of TUNROOF) m.visible = on; }
+// 頭頂上有東西的路段（隧道頂板、防護網、終點偽裝網）：跟車鏡頭不能高過它，不然會被擋住看不到車
+function ceilAt(d) { if (d > TUN0 - 2 && d < TUN1 + 2) return 7.0; if (d > NET0 - 2 && d < NET1 + 2) return 7.4; if (d > FINISH + 36 && d < FINISH + 204) return 5.2; return Infinity; }
+function camCeil(d0, d1) { let c = Infinity; for (let d = Math.min(d0, d1) - 6; d <= Math.max(d0, d1) + 6; d += 3) c = Math.min(c, ceilAt(d)); return c; }
 function strip(d0, d1, step, fn, mat, vScale = 8) {
   // fn(d) 回傳兩個側向點 [lat0, y0, lat1, y1]
   const pos = [], uv = [], idx = []; let n = 0;
@@ -730,14 +736,16 @@ for (let k = 0; k < 4; k++) put(sandbags(7, 3), 875 + k * 18, (k % 2 ? 1 : -1) *
 {
   const T0 = TUN0, T1 = TUN1;
   for (const s of [-1, 1]) WORLD.add(strip(T0, T1, 4, () => s < 0 ? [-6.6 - RW, 0, -6.6 - RW, 7.0] : [6.6 + RW, 7.0, 6.6 + RW, 0], M.concrete, 6));
-  WORLD.add(strip(T0, T1, 4, () => [6.8 + RW, 7.0, -6.8 - RW, 7.0], M.concrete, 6));
+  // 隧道頂板：不合併進靜態景物，老師的指揮地圖要能把它（和上面的覆土）隱藏，才看得到隧道裡的車
+  const roofMat = M.concrete.clone(); roofMat.vertexColors = false; roofMat.color = new THREE.Color(0x9a958a);
+  const roof = strip(T0, T1, 4, () => [6.8 + RW, 7.0, -6.8 - RW, 7.0], roofMat, 6); scene.add(roof); TUNROOF.push(roof);
   for (let d = T0 + 6; d < T1; d += 12) for (const l of [-9.5, 9.5]) { const lp = box(0.5, 0.12, 1.6, M.lampW, 0, 6.9, 0); put(lp, d, 0); const p2 = at(d); lp.position.x += p2.nx * l; lp.position.z += p2.nz * l; }
   for (const d of [T0, T1]) { const pg = new THREE.Group(); pg.add(box(4, 9.5, 1.2, M.concrete, -8.6 - RW, 4.75, 0, 0xc8c2b4)); pg.add(box(4, 9.5, 1.2, M.concrete, 8.6 + RW, 4.75, 0, 0xc8c2b4)); pg.add(box(21 + 2 * RW, 2.6, 1.2, M.concrete, 0, 8.2, 0, 0xc8c2b4)); put(pg, d, 0); }
   // 覆土：橫剖面從頂板向兩側接到山坡
   const pos = [], idx = [], uv = []; const lats = [-30, -22, -15, -10, -7, -3, 0, 3, 7, 10, 15, 22, 30].map(l => Math.abs(l) >= 3 ? l + Math.sign(l) * RW : l); let n = 0;
   for (let d = T0 - 1; d <= T1 + 1; d += 5) { const p = at(d); for (let j = 0; j < lats.length; j++) { const l = lats[j]; const x = p.x + p.nx * l, z = p.z + p.nz * l; const al = Math.abs(l); const top = 7.3 + 1.6 * Math.cos(al / (10 + RW) * Math.PI / 2); const y = al <= 7 + RW ? top : Math.max(groundH(x, z) + 0.3, 8.9 - (al - 7 - RW) * 0.35); pos.push(x, y, z); uv.push(l / 8, d / 8); } if (n) for (let j = 0; j < lats.length - 1; j++) { const a = (n - 1) * lats.length + j, b = n * lats.length + j; idx.push(a, b, a + 1, a + 1, b, b + 1); } n++; }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-  const mound = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ ...pbr('grass_ground', 1), side: THREE.DoubleSide })); mound.material.map.repeat.set(1, 1); mound.receiveShadow = true; scene.add(mound);
+  const mound = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ ...pbr('grass_ground', 1), side: THREE.DoubleSide })); mound.material.map.repeat.set(1, 1); mound.receiveShadow = true; scene.add(mound); TUNROOF.push(mound);
 }
 // 燒毀車輛、乾草捆
 function wreck() { const g = new THREE.Group(); g.add(box(2.1, 1.0, 4.6, M.rust, 0, 0.8, 0, COL.burnt)); const cab = box(1.9, 0.9, 2.2, M.rust, 0, 1.6, -0.3, COL.burnt); cab.rotation.z = 0.12; g.add(cab); for (const [x, z] of [[-1, 1.5], [1, 1.5], [-1, -1.5], [1, -1.5]]) { const w = cyl(0.42, 0.42, 0.3, 10, M.rust, COL.burnt); w.rotation.z = Math.PI / 2; w.position.set(x, 0.3, z); g.add(w); } g.rotation.z = 0.08; return g; }
@@ -2212,7 +2220,8 @@ function studentFrame(dt, now) {
   SS.shake = Math.max(0, SS.shake - dt * 1.8);
   if (ME.role === 'drive') {
     // 手機直放時畫面很窄：鏡頭拉高、拉遠、視野放寬，才看得到自己的車和左右車道
-    const port = innerHeight > innerWidth; const back = port ? 17 : 13, high = port ? 9.5 : 7.2, ahead = port ? 24 : 24; // 鏡頭要高過自己的車，才看得到正前方路上的地雷和殘骸
+    const port = innerHeight > innerWidth; let back = port ? 17 : 13, high = port ? 9.5 : 7.2; const ahead = 24; // 鏡頭要高過自己的車，才看得到正前方路上的地雷和殘骸
+    const ceil = camCeil(v.rd - back - 4, v.rd + 4); if (high > ceil - 1.6) { high = Math.max(3.6, ceil - 1.8); back = Math.min(back, 11); } // 隧道、防護網、偽裝網底下：鏡頭降低
     const fv = port ? 74 : 62; if (camera.fov !== fv) { camera.fov = fv; camera.updateProjectionMatrix(); }
     const want = TMPV.set(vp.x - p.tx * back - p.nx * v.rx * 0.4, high, vp.z - p.tz * back - p.nz * v.rx * 0.4);
     if (!SS.camInit) { camera.position.copy(want); SS.camInit = true; } else camera.position.lerp(want, Math.min(1, dt * 4));
@@ -2671,7 +2680,7 @@ function startFollow(v) {
 function followStep(k) { const list = W.veh.filter(Boolean); if (!list.length) return; let i = list.findIndex(x => x.vi === TS.fvi); i = (i + k + list.length) % list.length; TS.fvi = list[i].vi; SNAPCAM = true; }
 $('fPrev').onclick = () => followStep(-1); $('fNext').onclick = () => followStep(1);
 function chaseCam(v, dt) {
-  const p = at(v.rd); const vp = v.obj.root.position; const want = V(vp.x - p.tx * 12 - p.nx * 2, 6, vp.z - p.tz * 12 - p.nz * 2);
+  const p = at(v.rd); const vp = v.obj.root.position; const ceil = camCeil(v.rd - 16, v.rd + 4); const hy = Math.min(6, ceil - 1.8); const want = V(vp.x - p.tx * 12 - p.nx * 2, hy, vp.z - p.tz * 12 - p.nz * 2);
   if (SNAPCAM) { camera.position.copy(want); SNAPCAM = false; } else camera.position.lerp(want, Math.min(1, dt * 4));
   camera.lookAt(vp.x + p.tx * 14, 0.8, vp.z + p.tz * 14); camera.updateMatrixWorld();
   for (const o of W.veh) if (o && o !== v) o.obj.root.visible = o.obj.root.position.distanceTo(camera.position) > 9; v.obj.root.visible = true;
@@ -2803,6 +2812,7 @@ $('mCmd').addEventListener('click', (e) => { const b = e.target.closest('button'
 let SNAPCAM = true; const TAGS = [];
 function tag(i) { let el = TAGS[i]; if (!el) { el = document.createElement('div'); el.className = 'vtag'; $('vtags').appendChild(el); TAGS[i] = el; } el.style.display = 'block'; return el; }
 function teacherFrame(dt, now) {
+  setTunnelRoof(TS.view !== 'map'); // 指揮地圖從上往下看：拿掉隧道頂，才看得到隧道裡的車
   if (TS.view === 'replay' && RPL) { replayFrame(dt); teacherHud(dt, now); return; }
   $('pauseOv').hidden = !TS.paused;
   // 階段：倒數 → 開始 → 結束
@@ -2981,8 +2991,35 @@ else if (ROLE === 'student') studentInit();
 else { show('scrRole'); $('roleT').onclick = () => teacherInit(); $('roleS').onclick = () => studentInit(); document.querySelectorAll('.backrole').forEach(b => { b.hidden = false; b.onclick = () => location.reload(); }); }
 RENDER_OK = true;
 requestAnimationFrame(frame);
-window.__sr = { OBST, newDrone, showResult, get RES() { return RES; }, set RES(x) { RES = x; }, W, SIM, TS, SS, ME, NET, SFX, LEN, FINISH, at, spawnDrone, orderArtillery, heliStart, takeHeli, leaveHeli, tStartRound, tEndRound, startRehearsal, stopRehearsal, setTeacherView, simTick, renderWorld, KEY, MOUSE, MAP, get CREW() { return CREW; }, get META() { return META; }, get TPLAYERS() { return TPLAYERS; }, camera, scene, renderer,
+window.__sr = { laneClear, laneX, laneOf, startFollow, OBST, newDrone, showResult, get RES() { return RES; }, set RES(x) { RES = x; }, W, SIM, TS, SS, ME, NET, SFX, LEN, FINISH, at, spawnDrone, orderArtillery, heliStart, takeHeli, leaveHeli, tStartRound, tEndRound, startRehearsal, stopRehearsal, setTeacherView, simTick, renderWorld, KEY, MOUSE, MAP, get CREW() { return CREW; }, get META() { return META; }, get TPLAYERS() { return TPLAYERS; }, camera, scene, renderer,
   step(sec, d = 0.033) { if (!this.vt) { this.vt = NET.now(); NET.now = () => this.vt; } const n = Math.round(sec / d); for (let i = 0; i < n; i++) { this.vt += d * 1000; if (ROLE === 'teacher') teacherFrame(d, this.vt); else if (myVeh()) studentFrame(d, this.vt); } } };
+// 自動測試用：從鏡頭看某台車，有沒有在畫面內、有沒有被東西擋住
+{
+  const rc = new THREE.Raycaster(); const fr = new THREE.Frustum(); const pm = new THREE.Matrix4();
+  window.__sr.visCheck = (vi) => {
+    const v = W.veh[vi]; if (!v) return { ok: false, why: 'no veh' };
+    camera.updateMatrixWorld(); pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); fr.setFromProjectionMatrix(pm);
+    const tgt = v.obj.root.position.clone().add(V(0, 1.6, 0));
+    if (!v.obj.root.visible) return { ok: false, why: 'hidden' };
+    if (!fr.containsPoint(tgt)) return { ok: false, why: 'offscreen' };
+    const mine = new Set(); v.obj.root.traverse(o => mine.add(o));
+    // 車頭、車身、車尾三個點：只要有一點沒被擋住就算看得到（細桿子剛好擋住一個點不算）
+    const f = V(0, 0, 1).applyQuaternion(v.obj.root.quaternion); let last = null;
+    for (const off of [0, 2.6, -2.6]) {
+      const pt = tgt.clone().addScaledVector(f, off); const dir = pt.clone().sub(camera.position); const dist = dir.length(); dir.normalize(); rc.set(camera.position, dir); rc.far = dist; rc.camera = camera;
+      let blocked = null;
+      for (const h of rc.intersectObjects(scene.children, true)) {
+        const o = h.object; if (mine.has(o)) break; let vis = true; for (let p = o; p; p = p.parent) if (!p.visible) { vis = false; break; } if (!vis) continue;
+        if (!o.isMesh || o.isInstancedMesh || o.isSprite) continue; const m = Array.isArray(o.material) ? o.material[0] : o.material; if (!m || m.transparent || m.alphaTest > 0 || m.depthWrite === false) continue;
+        if (h.distance > dist - 3.2) break;
+        let other = false; for (const w of W.veh) if (w && w !== v) w.obj.root.traverse(q => { if (q === o) other = true; });
+        blocked = { ok: false, why: other ? 'other-veh' : 'blocked', at: Math.round(h.distance), dist: Math.round(dist), name: (m.name || '') + '/' + (o.geometry && o.geometry.type) }; break;
+      }
+      if (!blocked) return { ok: true }; last = blocked;
+    }
+    return last;
+  };
+}
 </script>
 </body>
 </html>

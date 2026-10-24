@@ -73,6 +73,7 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .heat i u { display: block; height: 100%; background: linear-gradient(90deg, #ffd36a, #ff5a3a); }
 .mark { position: absolute; transform: translate(-50%, -50%); font-size: calc(var(--fs) * 0.55); white-space: nowrap; color: #ffb15a; }
 .mark.red { color: #ff5a4e; }
+.mark.mine { color: #fff; background: rgba(200,30,20,0.85); padding: 1px 6px; border-radius: 6px; font-size: calc(var(--fs) * 0.5); }
 .edge { position: absolute; font-size: calc(var(--fs) * 1.4); color: #ff5a4e; transform: translate(-50%, -50%); }
 .hitfx { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at 50% 55%, rgba(255,190,110,0) 35%, rgba(255,110,30,0.5) 80%, rgba(120,30,0,0.75) 100%); }
 @media (orientation: portrait) {
@@ -386,8 +387,18 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.6.4（開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.7.0（路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
+(function checkNewer() {
+  const mine = VERSION.split('（')[0];
+  if (location.protocol === 'file:') return;
+  fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(t => {
+    t = (t || '').trim(); if (!t || t === mine) return;
+    let tried = ''; try { tried = sessionStorage.getItem('sr-vtry') || ''; } catch (_) {}
+    if (tried === t) return; try { sessionStorage.setItem('sr-vtry', t); } catch (_) {}
+    const u = new URL(location.href); u.searchParams.set('v', t); location.replace(u.toString());
+  }).catch(() => {});
+})();
 const Q = new URLSearchParams(location.search);
 const LOCAL = true; // 預覽頁：只用同一台電腦練習連線
 // 主網址（index.html）是老師畫面；學生掃 QR Code 進 play.html
@@ -711,9 +722,9 @@ for (let k = 0; k < 4; k++) put(sandbags(7, 3), 875 + k * 18, (k % 2 ? 1 : -1) *
   const BW = 5.6 + RW; WORLD.add(strip(BR0 - 6, BR1 + 6, 2, () => [-BW, 0.0, BW, 0.0], M.concrete, 6));
   const under = strip(BR0 - 6, BR1 + 6, 2, () => [BW, -1.5, -BW, -1.5], M.concrete, 6); WORLD.add(under);
   for (const s of [-1, 1]) { WORLD.add(strip(BR0 - 6, BR1 + 6, 2, () => s < 0 ? [-BW, 0.0, -BW, -1.5] : [BW, -1.5, BW, 0.0], M.concrete, 6)); WORLD.add(strip(BR0 - 6, BR1 + 6, 2, () => s < 0 ? [-ROAD_HW - 0.05, 0.04, -BW, 0.04] : [BW, 0.04, ROAD_HW + 0.05, 0.04], M.concrete, 6)); }
-  for (let d = BR0 - 4; d <= BR1 + 4; d += 3) for (const s of [-1, 1]) put(box(0.16, 1.1, 0.16, M.dark, 0, 0.55, 0, COL.metal), d, s * 5.3);
+  for (let d = BR0 - 4; d <= BR1 + 4; d += 3) for (const s of [-1, 1]) put(box(0.16, 1.1, 0.16, M.dark, 0, 0, 0, COL.metal), d, s * 5.3, 0, 0.55);
   for (const s of [-1, 1]) for (const y of [0.55, 1.05]) { const rl = strip(BR0 - 4, BR1 + 4, 2, () => [s * (5.3 + RW), y, s * (5.3 + RW), y + 0.12], M.dark, 4); rl.userData.col = COL.metal; WORLD.add(rl); }
-  for (const d of [BR0 + 22, BR0 + 50, BR0 + 78]) put(box(2.2, 10, 8 + 2 * RW, M.concrete, 0, -6.5, 0, 0xb8b2a4), d, 0);
+  for (const d of [BR0 + 22, BR0 + 50, BR0 + 78]) put(box(2.2, 10, 8 + 2 * RW, M.concrete, 0, 0, 0, 0xb8b2a4), d, 0, Math.PI / 2, -6.6); // 橋墩：在橋面底下、橫跨河谷（原本被放到路面上，變成路中間一道牆）
 }
 // 反無人機防護網通道
 {
@@ -726,7 +737,6 @@ for (let k = 0; k < 4; k++) put(sandbags(7, 3), 875 + k * 18, (k % 2 ? 1 : -1) *
   const T0 = TUN0, T1 = TUN1;
   for (const s of [-1, 1]) WORLD.add(strip(T0, T1, 4, () => s < 0 ? [-6.6 - RW, 0, -6.6 - RW, 7.0] : [6.6 + RW, 7.0, 6.6 + RW, 0], M.concrete, 6));
   WORLD.add(strip(T0, T1, 4, () => [6.8 + RW, 7.0, -6.8 - RW, 7.0], M.concrete, 6));
-  for (let d = T0 + 8; d < T1; d += 16) put(box(0.6, 7, 0.6, M.concrete, 0, 3.5, 0, 0xb8b2a4), d, 0); // 中間的支柱
   for (let d = T0 + 6; d < T1; d += 12) for (const l of [-9.5, 9.5]) { const lp = box(0.5, 0.12, 1.6, M.lampW, 0, 6.9, 0); put(lp, d, 0); const p2 = at(d); lp.position.x += p2.nx * l; lp.position.z += p2.nz * l; }
   for (const d of [T0, T1]) { const pg = new THREE.Group(); pg.add(box(4, 9.5, 1.2, M.concrete, -8.6 - RW, 4.75, 0, 0xc8c2b4)); pg.add(box(4, 9.5, 1.2, M.concrete, 8.6 + RW, 4.75, 0, 0xc8c2b4)); pg.add(box(21 + 2 * RW, 2.6, 1.2, M.concrete, 0, 8.2, 0, 0xc8c2b4)); put(pg, d, 0); }
   // 覆土：橫剖面從頂板向兩側接到山坡
@@ -755,8 +765,78 @@ for (let d = FINISH - 20; d < FINISH + 200; d += 9) for (const s of [-1, 1]) if 
 }
 { // 終點停車區上方的偽裝網
   WORLD.add(strip(FINISH + 40, FINISH + 200, 4, () => [-9 - RW, 5.2, 9 + RW, 5.2], M.net, 3));
-  for (let d = FINISH + 40; d <= FINISH + 200; d += 20) for (const s of [-1, 1]) put(box(0.15, 5.2, 0.15, M.dark, 0, 2.6, 0, COL.dark), d, s * 9);
+  for (let d = FINISH + 40; d <= FINISH + 200; d += 20) for (const s of [-1, 1]) put(box(0.15, 5.2, 0.15, M.dark, 0, 0, 0, COL.dark), d, s * 9, 0, 2.6);
 }
+
+/* ---------- 路上的障礙物 ----------
+   被炸毀的民用車、裝甲車：位置固定（老師和每支學生手機用同一組亂數種子，所以位置一樣）
+   地雷：每一輪換位置，用紅圈和三角警告牌標出來，讓學生可以提早閃 */
+function prng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const OBST = { wrecks: [], mines: [] };
+const LX = (l) => (l - 3.5) * 3.8; // 車道中心（和 d_sim 的 laneX 一樣）
+const OBST_BAD = (d) => (d > BR0 - 30 && d < BR1 + 30) || (d > TUN0 - 45 && d < TUN1 + 25) || d > FINISH - 90 || d < 220;
+function carWreck(rnd) {
+  const g = new THREE.Group(); const paint = [0x6e6a62, 0x5d2e2a, 0x34404e, 0x77746a][Math.floor(rnd() * 4)];
+  g.add(box(1.8, 0.62, 4.3, M.rust, 0, 0.55, 0, COL.burnt));
+  g.add(box(1.78, 0.18, 1.2, M.rust, 0, 0.92, 1.45, paint)); // 引擎蓋還留一點原本的漆
+  const cab = box(1.6, 0.58, 2.0, M.rust, 0, 1.15, -0.35, COL.black); cab.rotation.x = 0.06; cab.rotation.z = -0.08; g.add(cab);
+  for (const [x, z] of [[-0.85, 1.35], [0.85, 1.35], [-0.85, -1.35], [0.85, -1.35]]) { const w = cyl(0.3, 0.3, 0.2, 8, M.rust, COL.black); w.rotation.z = Math.PI / 2; w.position.set(x, 0.3, z); g.add(w); }
+  if (rnd() < 0.3) { g.rotation.z = Math.PI; g.position.y = 1.35; } // 有的翻覆
+  const o = new THREE.Group(); o.add(g); return { obj: o, hw: 0.95, hl: 2.2 };
+}
+function armorWreck(rnd) {
+  const g = new THREE.Group();
+  g.add(box(2.9, 1.25, 6.4, M.rust, 0, 1.05, 0, COL.burnt));
+  const glacis = box(2.9, 0.9, 1.4, M.rust, 0, 1.2, 3.35, COL.burnt); glacis.rotation.x = 0.55; g.add(glacis);
+  const tur = new THREE.Group(); tur.position.set(0.3, 1.95, -0.4); tur.rotation.set(0.12, 0.6 + rnd() * 1.4, -0.15); g.add(tur);
+  tur.add(box(1.9, 0.62, 2.3, M.rust, 0, 0, 0, COL.burnt)); const gun = cyl(0.09, 0.11, 3.2, 6, M.rust, COL.black); gun.rotation.x = Math.PI / 2 - 0.25; gun.position.set(0, 0.25, 2.2); tur.add(gun);
+  for (const s of [-1, 1]) for (let k = 0; k < 4; k++) { const w = cyl(0.55, 0.55, 0.42, 10, M.rust, COL.black); w.rotation.z = Math.PI / 2; w.position.set(s * 1.35, 0.55, -2.2 + k * 1.45); g.add(w); }
+  const o = new THREE.Group(); o.add(g); return { obj: o, hw: 1.5, hl: 3.3 };
+}
+{
+  const rnd = prng(20261024); let d = 240; let id = 1;
+  while (d < FINISH - 90) {
+    if (!OBST_BAD(d)) {
+      const n = rnd() < 0.35 ? 2 : 1; const l0 = Math.floor(rnd() * (n === 2 ? 7 : 8));
+      for (let k = 0; k < n; k++) {
+        const w = rnd() < 0.4 ? armorWreck(rnd) : carWreck(rnd); const rot = (rnd() - 0.5) * 0.5; const dd = d + (rnd() - 0.5) * 6; const lat = clamp(LX(l0 + k) + (rnd() - 0.5) * 1.2, LX(0) - 0.4, LX(7) + 0.4);
+        const p = at(dd); w.obj.position.set(p.x + p.nx * lat, 0, p.z + p.nz * lat); w.obj.rotation.y = Math.atan2(p.tx, p.tz) + rot; w.obj.userData.d = dd; WORLD.add(w.obj);
+        const sc = new THREE.Mesh(new THREE.CircleGeometry(3.2 + w.hl * 0.5, 14), M.crater); sc.rotation.x = -Math.PI / 2; sc.position.set(w.obj.position.x, 0.035, w.obj.position.z); sc.userData.d = dd; WORLD.add(sc); // 地上燒黑的痕跡
+        const c = Math.cos(rot), sn = Math.abs(Math.sin(rot));
+        OBST.wrecks.push({ id: id++, d: dd, x: lat, hw: w.hw * c + w.hl * sn, hl: w.hl * c + w.hw * sn, armor: w.hw > 1.2 });
+      }
+    }
+    d += 90 + rnd() * 70;
+  }
+}
+// 地雷（不合併進靜態景物，因為每輪要換位置、被踩到要消失）
+const MINE_RING = new THREE.MeshBasicMaterial({ color: 0xff3a2a, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide, fog: false });
+const MINE_FILL = new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, fog: false });
+const MINE_SIGN = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, fog: false, map: ctex(128, 128, (g, w, h) => { g.fillStyle = '#d22a1e'; g.beginPath(); g.moveTo(w / 2, 6); g.lineTo(w - 6, h - 10); g.lineTo(6, h - 10); g.closePath(); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(w / 2, 30); g.lineTo(w - 26, h - 22); g.lineTo(26, h - 22); g.closePath(); g.fill(); g.fillStyle = '#111'; g.font = '900 34px sans-serif'; g.textAlign = 'center'; g.fillText('雷', w / 2, h - 32); }), transparent: true, alphaTest: 0.3 });
+const minePool = [];
+function mineMesh(i) {
+  if (minePool[i]) return minePool[i];
+  const g = new THREE.Group();
+  const disc = cyl(0.34, 0.38, 0.12, 12, M.olive, 0x6f7552); disc.position.y = 0.06; g.add(disc);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(2.0, 2.5, 32), MINE_RING); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.07; g.add(ring);
+  const fill = new THREE.Mesh(new THREE.CircleGeometry(2.0, 32), MINE_FILL); fill.rotation.x = -Math.PI / 2; fill.position.y = 0.065; g.add(fill);
+  for (const s of [-1, 1]) { const post = cyl(0.05, 0.05, 1.7, 5, M.dark, COL.metal); post.position.set(s * 1.6, 0.85, 0); g.add(post); const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), MINE_SIGN); sign.position.set(s * 1.6, 2.1, 0); g.add(sign); }
+  scene.add(g); minePool[i] = g; return g;
+}
+function mineSeed(sid, round) { let h = 2166136261; for (const ch of String(sid) + '#' + round) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function placeMines(seed) {
+  const rnd = prng(seed); OBST.mines = []; let d = 300 + rnd() * 80; let id = 1;
+  while (d < FINISH - 100) {
+    if (!OBST_BAD(d) && !OBST.wrecks.some(w => Math.abs(w.d - d) < 22)) {
+      const lat = clamp(LX(Math.floor(rnd() * 8)) + (rnd() - 0.5) * 1.6, LX(0) - 0.5, LX(7) + 0.5); const p = roadPos(d, lat, 0, V());
+      OBST.mines.push({ id: id++, d, lat, p, alive: true }); d += 120 + rnd() * 90;
+    } else d += 20; // 這裡不能放（橋、隧道、殘骸旁邊）：往前挪一點再試
+  }
+  OBST.mines.forEach((m, i) => { const g = mineMesh(i); g.position.copy(m.p); const a = at(m.d); g.rotation.y = Math.atan2(a.tx, a.tz); g.visible = true; m.mesh = g; });
+  for (let i = OBST.mines.length; i < minePool.length; i++) minePool[i].visible = false;
+}
+// 紅圈每秒慢慢亮暗一次（不閃爍）
+function mineAnim(now) { MINE_RING.opacity = 0.55 + 0.35 * Math.sin(now / 1000 * Math.PI * 2); }
 
 /* ---------- 把靜態景物合併成少數幾個網格（手機才跑得動） ---------- */
 function bake() {
@@ -1241,7 +1321,7 @@ const laneX = (l) => (l - (NL - 1) / 2) * LANE;
 const laneOf = (x) => clamp(Math.round(x / LANE + (NL - 1) / 2), 0, NL - 1);
 const SPD = { cruise: 16, gas: 21, brake: 3 };
 const ARMOR = 100, DOWN_SEC = 6, REPAIR_TO = 50;
-const DMG = { drone: 15, droneCargo: 3, shellNear: 25, shellFar: 10, rocketNear: 13, rocketFar: 6, cannon: 2.5, wing: 1.2, downCargo: 20 };
+const DMG = { mine: 30, mineCargo: 6, crash: 6, drone: 15, droneCargo: 3, shellNear: 25, shellFar: 10, rocketNear: 13, rocketFar: 6, cannon: 2.5, wing: 1.2, downCargo: 20 };
 const DRONE = { radioSpd: 34, fiberSpd: 30, lockT: 0.65, yellowT: 3.0, redT: 1.4 };
 const GUN_RATE = 12.6; // 直升機機砲每秒發數（原本 9 發，提高四成）
 const AI_KILL = 0.09; // 電腦射手每秒打下無人機的機率（每座）
@@ -1298,7 +1378,39 @@ function driveStep(v, dt, inp, others) {
   } else v.vlat = 0;
   // 電腦開車（或抵達後停車）：換車道約 0.8 秒（有慣性）
   if (!human && v.laneT < 1) { v.laneT = Math.min(1, v.laneT + dt / 0.8); const k = v.laneT * v.laneT * (3 - 2 * v.laneT); v.x = v.x0 + (laneX(v.lane) - v.x0) * k; }
-  v.d += v.v * dt;
+  const dPrev = v.d; v.d += v.v * dt;
+  if (v.st === 0) obstBlock(v, dPrev);
+}
+// 殘骸擋路：從後面開上去會卡住停下；從旁邊靠過去會被擋開
+const VHW = 1.3, VHL = 3.3; // 卡車半寬、半長（公尺）
+function obstBlock(v, dPrev) {
+  for (const o of OBST.wrecks) {
+    if (Math.abs(o.d - v.d) > o.hl + VHL + 3) continue;
+    if (Math.abs(v.x - o.x) >= o.hw + VHW) continue;
+    const front = o.d - o.hl - VHL, back = o.d + o.hl + VHL;
+    if (v.d <= front || v.d >= back) continue;
+    if (dPrev <= front + 0.5) { v.d = front; v.v = 0; }
+    else { v.x = o.x + (v.x >= o.x ? 1 : -1) * (o.hw + VHW); v.vlat = 0; v.lane = laneOf(v.x); }
+  }
+}
+// 是否正頂在殘骸後面
+function wreckContact(v) { for (const o of OBST.wrecks) { if (Math.abs(v.x - o.x) >= o.hw + VHW) continue; const f = o.d - o.hl - VHL; if (v.d > f - 0.8 && v.d < f + 1.2) return o; } return null; }
+// 某條車道在一段路上有沒有殘骸或（看得到的）地雷
+function laneClear(l, d0, d1, mines) {
+  const x = laneX(l);
+  for (const o of OBST.wrecks) if (o.d + o.hl > d0 && o.d - o.hl < d1 && Math.abs(x - o.x) < o.hw + VHW + 0.4) return false;
+  if (mines) for (const m of OBST.mines) if (m.alive && m.d > d0 && m.d < d1 && Math.abs(x - m.lat) < VHW + 0.9) return false;
+  return true;
+}
+// 地雷：老師電腦（或單人練習）判定有沒有踩到
+function mineTick() {
+  for (const v of W.veh) {
+    if (!v || v.st !== 0) continue;
+    for (const m of OBST.mines) {
+      if (!m.alive || Math.abs(v.d - m.d) > VHL || Math.abs(v.x - m.lat) > VHW + 0.25) continue;
+      m.alive = false; ev('m', m.id); damage(v, DMG.mine, 'mine', DMG.mineCargo); SIM.cnt.mine++; hl(v.vi, 1, 'mine');
+    }
+  }
 }
 const LAT_SPD = 6; // 按住方向鍵時橫向移動的速度（公尺／秒），一條車道寬 3.8 公尺
 function parkD(k) { return FINISH + 45 + Math.floor(k / NL) * 13; }
@@ -1328,6 +1440,7 @@ function handleEvent(e, local) {
   else if (type === 'r') { const r = { a: V(e[2], e[3], e[4]), b: V(e[5], e[6], e[7]), t0: e[8], dur: e[9], mesh: makeRocketMesh(), done: false }; W.rockets.push(r); SFX.rocket(r.a); puff(r.a, V(), 0.08, 2.5, 1, 0xffd090, true, 1); for (let i = 0; i < 3; i++) puff(r.a, V((R() - 0.5) * 4, (R() - 0.5) * 2, (R() - 0.5) * 4), 1.5, 1.2, 4, 0xbab6ae, false, 0.6); if (window.onBoom) window.onBoom(r.a, 1); }
   else if (type === 'f') { spawnFlares(V(e[2], e[3], e[4]), V(e[5], 0, e[6])); SFX.flare(V(e[2], e[3], e[4])); }
   else if (type === 'n') { const p = V(e[2], e[3], e[4]); boom(p, 0); }
+  else if (type === 'm') { const m = OBST.mines.find(x => x.id === e[2]); if (m) { m.alive = false; if (m.mesh) m.mesh.visible = false; const p = m.p.clone(); p.y = 0.4; boom(p, 1); SFX.boom(p, 1); if (window.onBoom) window.onBoom(p, 1); } }
   if (window.onGameEvent) window.onGameEvent(e);
 }
 const rocketPool = [];
@@ -1341,14 +1454,14 @@ function spawnFlares(p, v) {
 /* ---------- 畫面：每張畫面更新所有物體的位置 ---------- */
 const CAMP = V();
 function renderWorld(dt, now, opt = {}) {
-  CAMP.copy(camera.position);
+  CAMP.copy(camera.position); mineAnim(now);
   const T = (now - W.t0) / 1000;
   // 車輛
   for (const v of W.veh) {
     if (!v) continue; const o = v.obj;
     if (!opt.own || opt.own !== v) { if (v.sd !== undefined && opt.client) { const age = Math.min(1, (now - v.st0) / 1000); const pred = v.sd + v.sv * age; v.rd += (v.st === 1 ? 0 : v.sv) * dt; v.rd += (pred - v.rd) * Math.min(1, dt * 4); if (Math.abs(pred - v.rd) > 25) v.rd = pred; v.rx += (v.x - v.rx) * Math.min(1, dt * 5); }
       // 老師畫面：學生手機每秒只回報約 7 次位置，網路還會忽快忽慢；畫的時候往回報位置平滑靠過去，不直接跳
-      else if (opt.smooth && v.vd && !v.localDrive && v.crew.d && !v.driverStale) { if (v.rd === undefined || Math.abs(v.d - v.rd) > 25) v.rd = v.d; v.rd += (v.st === 1 ? 0 : v.v) * dt; v.rd += (v.d - v.rd) * Math.min(1, dt * 5); v.rx += (v.x - v.rx) * Math.min(1, dt * 6); }
+      else if (opt.smooth && v.vd && !v.localDrive && v.crew.d && !v.driverStale) { const fd = opt.fdt || dt; if (v.rd === undefined || Math.abs(v.d - v.rd) > 25) v.rd = v.d; v.rd += (v.st === 1 ? 0 : v.v) * fd; v.rd += (v.d - v.rd) * Math.min(1, fd * 5); v.rx += (v.x - v.rx) * Math.min(1, fd * 6); }
       else { v.rd = v.d; v.rx = v.x; } }
     else { v.rd = v.d; v.rx = v.x; }
     const p = at(v.rd); const h = Math.atan2(p.tx, p.tz);
@@ -1435,7 +1548,7 @@ function renderHeli(dt, now, opt) {
 /* =========================================================
    老師電腦的裁判計算
    ========================================================= */
-const freshCnt = () => ({ fpv: 0, fiber: 0, shot: 0, jam: 0, net: 0, dodge: 0, hit: 0, shells: 0, shellHit: 0, mslH: 0, mslHHit: 0, decoy: 0, mslD: 0, mslDHit: 0, rockets: 0 });
+const freshCnt = () => ({ mine: 0, crash: 0, fpv: 0, fiber: 0, shot: 0, jam: 0, net: 0, dodge: 0, hit: 0, shells: 0, shellHit: 0, mslH: 0, mslHHit: 0, decoy: 0, mslD: 0, mslDHit: 0, rockets: 0 });
 // 精彩片段：記下誰在什麼時候做了什麼（回合結束重播用）
 function hl(vi, score, what) { if (vi >= 0) SIM.hl.push({ t: NET.now(), vi, score, what }); }
 const SIM = { hl: [], cnt: freshCnt(), mslGap: 0, diff: 1, auto: true, nextArt: 6, stock: { fpv: 12, fiber: 4, art: 6 }, stockT: { fpv: 0, fiber: 0, art: 0 }, arrived: 0, impWait: new Map(), impRep: new Map(), lastSnap: 0, rocketQ: [], heliIn: null, wingCmdT: 0 };
@@ -1455,7 +1568,7 @@ function vehPosNow(v, out, y = 1.2) { return roadPos(v.d, v.x, y, out); }
 function damage(v, amt, kind, cargo = 0) {
   if (!v || v.st !== 0) return;
   v.hp -= amt; v.cargo = Math.max(0, v.cargo - cargo); v.dseq++; v.dk = kind;
-  if (['drone', 'shell', 'rocket'].includes(kind)) v.stats.hits++;
+  if (['drone', 'shell', 'rocket', 'mine'].includes(kind)) v.stats.hits++;
   if (v.hp <= 0) { v.hp = 0; v.st = 1; v.downT = DOWN_SEC; v.cargo = Math.max(0, v.cargo - DMG.downCargo); v.stats.downs++; v.dk = 'down'; hl(v.vi, 1, 'down'); }
   if ((v.localDrive || v.localGun) && window.onVehHit) window.onVehHit(v, v.dk);
 }
@@ -1569,6 +1682,15 @@ function aiDrive(v, dt, now) {
     const dec = v.ai.z[z.id];
     if (dec === 'lane') { const c = (z.l0 + z.l1) / 2; setLane(v, laneOf(v.x < c ? z.l0 - 2 : z.l1 + 2)); v.ai.laneCool = 2; }
     else if (dec === 'brake' && v.d < z.d0 - 3 && now < z.tf + z.dur) inp.brake = true;
+  }
+  v.ai.obT = (v.ai.obT || 0) - dt;
+  if (v.ai.obT <= 0 && v.st === 0) {
+    v.ai.obT = 0.4; if (v.ai.seeMines === undefined) v.ai.seeMines = R() < 0.75;
+    const tl = v.laneT < 1 ? v.lane : laneOf(v.x);
+    if (!laneClear(tl, v.d, v.d + 55, v.ai.seeMines)) {
+      const order = [...Array(NL).keys()].sort((a, b) => Math.abs(a - tl) - Math.abs(b - tl) || (R() - 0.5));
+      const free = order.find(l => laneClear(l, v.d - 4, v.d + 70, v.ai.seeMines)); if (free !== undefined && free !== v.lane) { setLane(v, free); v.ai.laneCool = 1.5; }
+    }
   }
   if (v.blocked && v.ai.laneCool <= 0) { setLane(v, v.lane + (v.lane <= 0 ? 1 : v.lane >= NL - 1 ? -1 : R() < 0.5 ? -1 : 1)); v.ai.laneCool = 2.5; }
   if (!inp.brake && segAt(v.d).k > 0 && R() < 0.002) inp.gas = true;
@@ -1717,6 +1839,9 @@ function simTick(dt, now, heliInp) {
     else if (!v.crew.g || v.gunStale) { if (v.st !== 2) aiGunner(v, dt, now); else v.fire = 0; }
     else if (v.vg) { v.wy = v.vg.y; v.wp = v.vg.p; v.fire = v.vg.f; }
   }
+  // 撞上殘骸：開得快時撞上去會受一點傷（慢慢頂著不算）
+  for (const v of W.veh) { if (!v || v.st !== 0) continue; const o = wreckContact(v); if (o && !v.inWreck && (v.pv || 0) > 4) { damage(v, DMG.crash, 'crash'); SIM.cnt.crash++; } v.inWreck = !!o; v.pv = v.v; }
+  mineTick();
   director(dt, now);
   // 電腦射手打無人機：每架無人機附近（150 公尺內）最多算兩座電腦機槍
   for (const dr of [...W.drones.values()]) {
@@ -1741,11 +1866,12 @@ function snapshot(now) {
   const ms = [...W.missiles.values()].map(m => [m.id, r1(m.p.x), r1(m.p.y), r1(m.p.z), r1(m.vel.x), r1(m.vel.y), r1(m.vel.z), m.vi]);
   const ar = [...W.zones.values()].map(z => [z.id, r1(z.d0), r1(z.d1), r1(z.l0), r1(z.l1), Math.round(z.tf - now), z.dur]);
   W.events = W.events.filter(e => now - e.t < 1500);
-  return JSON.stringify({ t: now, pz: W.paused ? 1 : 0, el: Math.round(W.el), v, dr, hz, wg, ms, ar, ev: W.events.map(e => e.e) });
+  return JSON.stringify({ mx: OBST.mines.filter(m => !m.alive).map(m => m.id), t: now, pz: W.paused ? 1 : 0, el: Math.round(W.el), v, dr, hz, wg, ms, ar, ev: W.events.map(e => e.e) });
 }
 // 學生手機：套用老師送來的資料
 function applySnap(s, now, ownPosVi, ownGunVi) {
   W.el = s.el;
+  if (s.mx) { const gone = new Set(s.mx); for (const m of OBST.mines) { m.alive = !gone.has(m.id); if (m.mesh) m.mesh.visible = m.alive; } }
   s.v.forEach((a, vi) => {
     const v = W.veh[vi]; if (!a || !v) return;
     if (vi !== ownPosVi) { v.sd = a[0]; v.sv = a[2]; v.st0 = s.t; v.x = a[1]; v.v = a[2]; }
@@ -1811,6 +1937,7 @@ const KNOW = [
   { t: '防護網', x: '烏克蘭在前線道路兩側和上方架網，做成一條條「保護隧道」，讓無人機撞網提早引爆；但網子有缺口，也擋不住砲彈。', src: 'Business Insider（經 AOL 轉載），2025-09-16' },
   { t: '砲兵沒有消失', x: '英國智庫 RUSI 的報告指出，無人機已經造成俄軍六到七成的裝備損失，但前線軍官強調火砲仍不可少：常見打法是無人機找目標、火砲負責攻擊。（六到七成是裝備損失，不是人員傷亡。）', src: 'RUSI 報告，2025-02-14' },
   { t: '補給線就是戰場', x: '烏克蘭用無人機攻擊俄軍通往克里米亞的補給線：不必打贏正面的戰鬥，只要讓補給送不到，前線就撐不下去。', src: 'RUSI，2026-07-07' },
+  { t: '路上的殘骸和地雷', x: '補給車隊最怕的不只是天上的攻擊：被炸毀的車輛會堵住道路，讓車隊減速、擠在一起，變成更好打的目標；在路上埋設地雷也是攔截補給的常見手法。所以車隊行進前通常要先派人清理和偵察路線。', src: '一般原理說明' },
   { t: '熱焰彈怎麼騙飛彈', x: '肩射防空飛彈多半靠追蹤引擎的熱來導引。直升機在飛彈快到時放出燃燒溫度很高的熱焰彈，飛彈就可能轉去追熱焰彈。放太早，熱焰彈燒完了飛彈還沒到，就沒有用。', src: '一般原理說明' },
 ];
 const QUESTIONS = [
@@ -1846,6 +1973,7 @@ function cntHtml(c) {
   h += `<div>・撞上防護網 <b>${c.net}</b> 架（${pct(c.net)}%）</div>`;
   h += `<div>・被駕駛閃過 <b>${c.dodge}</b> 架；打中車子 <b>${c.hit}</b> 架（${pct(c.hit)}%）</div>`;
   h += `<div>砲擊落下 <b>${c.shells}</b> 發，波及車輛 ${c.shellHit} 次。</div>`;
+  if (c.mine || c.crash) h += `<div>踩到地雷 <b>${c.mine || 0}</b> 次；撞上路上的殘骸 <b>${c.crash || 0}</b> 次。</div>`;
   if (c.mslH || c.rockets) h += `<div>防空飛彈打直升機 <b>${c.mslH}</b> 枚：命中 ${c.mslHHit}、被熱焰彈騙走 ${c.decoy}。直升機發射火箭 ${c.rockets} 枚。</div>`;
   return h + '</div>';
 }
@@ -1947,7 +2075,7 @@ function renderLive() {
 function prepRun() {
   SS.round = META.round; SS.mode = 'prep'; SS.gotSnap = false; SS.whistled.clear(); SS.hitCnt.clear(); SS.lastArrMsg = false; SS.over = false; SS.heat = 0; SS.lockT = 0;
   W.drones.forEach(d => d.mesh.visible = false); W.drones.clear(); W.zones.clear(); W.seen.clear(); for (const m of W.missiles.values()) scene.remove(m.mesh); W.missiles.clear(); W.rockets.forEach(r => r.mesh.visible = false); W.rockets = []; TR.clear();
-  initVehicles(CREW);
+  placeMines(mineSeed(META.sid, META.round)); initVehicles(CREW);
   const v = myVeh(); SS.aimY = v.d !== undefined ? headingAt(v.d) : 0; SS.aimP = 0.15;
   if (SS.wUnsub) SS.wUnsub(); SS.wUnsub = NET.on('w', (str) => { if (!str || SS.mode === 'idle') return; let s; try { s = JSON.parse(str); } catch (_) { return; } onSnap(s); });
   if (SS.vdUnsub) { SS.vdUnsub(); SS.vdUnsub = null; }
@@ -2045,6 +2173,8 @@ window.onVehHit = (v, kind) => {
   if (ROLE !== 'student' || v.vi !== ME.vi) return;
   if (kind === 'down') { SFX.hit('big'); SS.shake = 1; SS.hitA = 1; return; }
   if (kind === 'fixed') { flash(ME.role === 'drive' ? 'dGood' : 'gGood', '搶修完成，繼續前進！', 2); SFX.good(); return; }
+  if (kind === 'crash') { SFX.hit('bullet'); SS.shake = Math.max(SS.shake, 0.6); flash(ME.role === 'drive' ? 'dWarn' : 'gWarn', '撞上殘骸！', 1.8); return; }
+  if (kind === 'mine') flash(ME.role === 'drive' ? 'dWarn' : 'gWarn', '踩到地雷！', 2.2);
   if (kind === 'cannon' || kind === 'wing') { SFX.hit('bullet'); SS.shake = Math.max(SS.shake, 0.3); SS.hitA = Math.max(SS.hitA, 0.35); return; }
   SFX.hit('big'); SS.shake = Math.max(SS.shake, kind === 'drone' ? 0.9 : 0.7); SS.hitA = Math.max(SS.hitA, 0.9);
 };
@@ -2082,7 +2212,7 @@ function studentFrame(dt, now) {
   SS.shake = Math.max(0, SS.shake - dt * 1.8);
   if (ME.role === 'drive') {
     // 手機直放時畫面很窄：鏡頭拉高、拉遠、視野放寬，才看得到自己的車和左右車道
-    const port = innerHeight > innerWidth; const back = port ? 17 : 11, high = port ? 9 : 5.4, ahead = port ? 22 : 14;
+    const port = innerHeight > innerWidth; const back = port ? 17 : 13, high = port ? 9.5 : 7.2, ahead = port ? 24 : 24; // 鏡頭要高過自己的車，才看得到正前方路上的地雷和殘骸
     const fv = port ? 74 : 62; if (camera.fov !== fv) { camera.fov = fv; camera.updateProjectionMatrix(); }
     const want = TMPV.set(vp.x - p.tx * back - p.nx * v.rx * 0.4, high, vp.z - p.tz * back - p.nz * v.rx * 0.4);
     if (!SS.camInit) { camera.position.copy(want); SS.camInit = true; } else camera.position.lerp(want, Math.min(1, dt * 4));
@@ -2147,15 +2277,24 @@ function driveHud(v, dt, now) {
   // 砲擊預警
   let art = null;
   for (const z of W.zones.values()) { const left = (z.tf - now) / 1000; if (z.d1 < v.d - 5 || z.d0 > v.d + 260 || left < -z.dur / 1000) continue; if (!art || left < art.left) art = { z, left }; tip('art', '砲擊預警：橘色斜線區域幾秒後會落下一排砲彈。換車道離開，或先煞車等它打完。防護網擋不住砲彈。'); if (!SS.whistled.has(z.id) && left < 1.6 && left > 0) { SS.whistled.add(z.id); SFX.whistle(roadPos((z.d0 + z.d1) / 2, 0, 20, V())); } }
+  // 地雷：前方 150 公尺內的都標出來
+  let mineNear = null;
+  for (const m of OBST.mines) { if (!m.alive) continue; const ahead = m.d - v.d; if (ahead < -4 || ahead > 150) continue; markAt(host, mi++, TMPV.set(m.p.x, 3.4, m.p.z).clone(), '地雷', 'mine'); if (ahead > 0 && ahead < 45 && Math.abs(m.lat - v.x) < VHW + 0.9 && (!mineNear || ahead < mineNear)) mineNear = ahead; tip('mine', '路上有地雷（紅圈和三角警告牌）：開過去會爆炸，裝甲和補給都會大減。提早按住 ◀ ▶ 繞開。'); }
+  // 殘骸：正前方 40 公尺內擋住自己
+  let wreckNear = null;
+  for (const o of OBST.wrecks) { const ahead = o.d - o.hl - v.d; if (ahead < -2 || ahead > 40) continue; if (Math.abs(o.x - v.x) < o.hw + VHW) { wreckNear = o; break; } }
+  if (wreckNear) tip('wreck', '路上有被炸毀的車輛：直直開過去會撞上卡住。按住 ◀ ▶ 從旁邊繞過去。');
   marksDone(mi);
   let warn = '';
   if (W.heli.on && W.heli.state === 0) tip('heli', '攻擊直升機出現了！它的機砲和火箭很痛，不要停在原地。射手可以用防空飛彈打它。');
   if (v.st === 1) tip('down', '裝甲被打穿了：車子要停 6 秒搶修，補給少兩成；修好後只剩一半裝甲，要更小心。');
-  if (v.blocked && v.st === 0) tip('blocked', '前面的車擋住了：按 ◀ ▶ 換到旁邊的車道超車。');
+  if (v.blocked && v.st === 0) tip('blocked', '前面的車擋住了：按住 ◀ ▶ 移到旁邊的車道超車。');
   if (v.st === 1) { $('dDown').hidden = false; $('dDownT').textContent = `搶修中… ${Math.ceil(v.downT || 0)} 秒`; } else $('dDown').hidden = true;
   if (red) warn = '無人機鎖定！紅圈縮到最小時換車道';
   else if (yellow) warn = '無人機正在瞄準你們的車！';
   else if (art && art.left > 0) warn = `砲擊預警 ${Math.ceil(art.left)} 秒：避開橘色區域`;
+  else if (mineNear !== null && v.st === 0) warn = `前方 ${Math.round(mineNear)} 公尺有地雷！往旁邊閃`;
+  else if (wreckNear && v.st === 0) warn = '前方有殘骸擋路！按住 ◀ ▶ 繞過去';
   else if (v.blocked && v.st === 0) warn = '前方有車擋路：換車道超車';
   if (v.st === 2) { warn = ''; if (!SS.lastArrMsg) { SS.lastArrMsg = true; flash('dGood', `抵達終點！送達補給 ${Math.round(v.cargo)}%`, 5); SFX.good(); } }
   if (warn) { $('dWarn').textContent = warn; $('dWarn').hidden = false; FLASH.dWarn = 0; } else if (!FLASH.dWarn) $('dWarn').hidden = true;
@@ -2263,7 +2402,7 @@ const PX = { endT: 0 };
 function startPractice(role) {
   stopRun(); SS.practice = true; SS.mode = 'practice'; SS.pxRole = role;
   const t = ME.team >= 0 ? ME.team : 1; const crew = [1, 2, 3, 4].map(n => ({ t, n, d: '', g: '', dc: '', gc: '' }));
-  simReset(); W.seen.clear(); initVehicles(crew); W.el = 0; W.t0 = NET.now(); SIM.diff = 1; SIM.auto = true; aiHeliReset();
+  simReset(); W.seen.clear(); placeMines((Math.random() * 4e9) >>> 0); initVehicles(crew); W.el = 0; W.t0 = NET.now(); SIM.diff = 1; SIM.auto = true; aiHeliReset();
   ME.vi = 0; ME.role = role; const v = W.veh[0]; if (role === 'drive') v.localDrive = true; else v.localGun = true;
   Object.assign(SS, { whistled: new Set(), lastArrMsg: false, over: false, heat: 0, lockT: 0, camInit: false, fireHeld: false, jamCool: 0, segName: '' }); SS.hitCnt.clear(); SS.inp.gas = SS.inp.brake = SS.inp.l = SS.inp.r = false;
   SS.aimY = headingAt(v.d); SS.aimP = 0.15; PX.endT = 0;
@@ -2409,7 +2548,7 @@ function tStartRound(which = 'all') {
   TS.swapped = teams.filter(t => TS.tr[t] % 2 === 1); for (const t of teams) TS.tr[t]++; TS.teams = teams;
   TS.rec = []; TS.paused = false; W.paused = false; AIH.tv = null; aiHeliReset(); TS.round++; TS.crew = crew; TS.phase = 'count'; TS.startAt = NET.now() + COUNT_SEC * 1000; TS.endsAt = TS.startAt + LIMIT_SEC * 1000;
   for (const p of ['vd', 'vg', 'hit', 'msl', 'jam', 'imp', 'res', 'w']) NET.remove(p);
-  simReset(); initVehicles(crew); W.el = 0; W.t0 = TS.startAt; SIM.diff = CFG.diff; SIM.auto = CFG.auto; heliStop(); setTeacherView('map');
+  simReset(); placeMines(mineSeed(TS.sid, TS.round)); initVehicles(crew); W.el = 0; W.t0 = TS.startAt; SIM.diff = CFG.diff; SIM.auto = CFG.auto; heliStop(); setTeacherView('map');
   const grace = performance.now() + COUNT_SEC * 1000 + 2000; for (const v of W.veh) { v.vdT = grace; v.vgT = grace; }
   NET.set('crew', crew);
   NET.set('meta', { sid: TS.sid, phase: 'count', round: TS.round, teams, startAt: TS.startAt, endsAt: TS.endsAt });
@@ -2475,7 +2614,7 @@ function startRehearsal() {
   if (busy()) return;
   const crew = []; for (let t = 0; t < 4; t++) for (let k = 1; k <= VEH_MAX; k++) crew.push({ t, n: k, d: '', g: '', dc: '', gc: '' });
   TS.rec = []; TS.paused = false; W.paused = false; AIH.tv = null; aiHeliReset(); TS.rehearsal = true; TS.crew = crew; TS.phase = 'run'; TS.startAt = NET.now(); TS.endsAt = TS.startAt + LIMIT_SEC * 1000;
-  simReset(); initVehicles(crew); W.el = 0; W.t0 = TS.startAt; SIM.diff = CFG.diff; SIM.auto = CFG.auto; setTeacherView('map');
+  simReset(); placeMines((Math.random() * 4e9) >>> 0); initVehicles(crew); W.el = 0; W.t0 = TS.startAt; SIM.diff = CFG.diff; SIM.auto = CFG.auto; setTeacherView('map');
   $('tPanel').hidden = true; $('tShow').hidden = false; $('tRes').hidden = true; renderCtl();
 }
 function stopRehearsal(show) { if (!TS.rehearsal) return; if (show) tEndRound('stop'); else { TS.rehearsal = false; TS.phase = 'lobby'; heliStop(); hideVehicles(); W.veh = []; simReset(); renderCtl(); } }
@@ -2683,7 +2822,7 @@ function teacherFrame(dt, now) {
     TS.inp = inp; simTick(dt, now, inp); TQ.rocket = TQ.wing = TQ.flare = false;
     if (now > TS.endsAt || (W.veh.length && W.veh.every(v => v.st === 2 && Math.abs(v.d - v.pk) < 2))) tEndRound('end');
   }
-  renderWorld(dt, now, { smooth: TS.phase === 'run' });
+  renderWorld(dt, now, { smooth: TS.phase === 'run', fdt: TS.fdt || dt });
   // 傳資料給學生手機（每秒 5 次）
   if (TS.rehearsal && TS.phase === 'run') { TS.recT = (TS.recT || 0) - dt; if (TS.recT <= 0) { TS.recT = 0.2; TS.rec.push({ t: now, s: snapshot(now) }); } } // 演練也錄下來，結束時可以重播
   if ((TS.phase === 'count' || TS.phase === 'run') && !TS.rehearsal) {
@@ -2818,7 +2957,7 @@ function frame() {
   requestAnimationFrame(frame);
   const raw = Math.min(clock.getDelta(), 0.1); const now = NET.now(); const time = clock.elapsedTime;
   if (window.__hold) return; // 自動測試用
-  if (ROLE === 'teacher') { const n = Math.max(1, Math.ceil(raw / 0.034)); for (let i = 0; i < n; i++) teacherFrameStep(raw / n, now - (n - 1 - i) * raw / n * 1000, i === n - 1); }
+  if (ROLE === 'teacher') { TS.fdt = raw; const n = Math.max(1, Math.ceil(raw / 0.034)); for (let i = 0; i < n; i++) teacherFrameStep(raw / n, now - (n - 1 - i) * raw / n * 1000, i === n - 1); }
   else if (ROLE === 'student' && (SS.mode === 'run' || SS.mode === 'count' || SS.mode === 'prep' || SS.mode === 'practice') && myVeh()) { const raw2 = Math.min(clock2.getDelta(), 0.3); const n = Math.max(1, Math.ceil(raw2 / 0.05)); for (let i = 0; i < n - 1; i++) studentDrive(raw2 / n); studentFrame(raw2 / n, now); SFX.update(raw, SND); }
   else { if (MOBILE && (menuSkip ^= 1)) return; const a = time * 0.04; camera.position.set(Math.sin(a) * 120 + 60, 45, Math.cos(a) * 120); camera.lookAt(60, 0, 0); SFX.update(raw, {}); }
   // 太陽（月光）陰影跟著鏡頭
@@ -2845,7 +2984,7 @@ else if (ROLE === 'student') studentInit();
 else { show('scrRole'); $('roleT').onclick = () => teacherInit(); $('roleS').onclick = () => studentInit(); document.querySelectorAll('.backrole').forEach(b => { b.hidden = false; b.onclick = () => location.reload(); }); }
 RENDER_OK = true;
 requestAnimationFrame(frame);
-window.__sr = { newDrone, showResult, get RES() { return RES; }, set RES(x) { RES = x; }, W, SIM, TS, SS, ME, NET, SFX, LEN, FINISH, at, spawnDrone, orderArtillery, heliStart, takeHeli, leaveHeli, tStartRound, tEndRound, startRehearsal, stopRehearsal, setTeacherView, simTick, renderWorld, KEY, MOUSE, MAP, get CREW() { return CREW; }, get META() { return META; }, get TPLAYERS() { return TPLAYERS; }, camera, scene, renderer,
+window.__sr = { OBST, newDrone, showResult, get RES() { return RES; }, set RES(x) { RES = x; }, W, SIM, TS, SS, ME, NET, SFX, LEN, FINISH, at, spawnDrone, orderArtillery, heliStart, takeHeli, leaveHeli, tStartRound, tEndRound, startRehearsal, stopRehearsal, setTeacherView, simTick, renderWorld, KEY, MOUSE, MAP, get CREW() { return CREW; }, get META() { return META; }, get TPLAYERS() { return TPLAYERS; }, camera, scene, renderer,
   step(sec, d = 0.033) { if (!this.vt) { this.vt = NET.now(); NET.now = () => this.vt; } const n = Math.round(sec / d); for (let i = 0; i < n; i++) { this.vt += d * 1000; if (ROLE === 'teacher') teacherFrame(d, this.vt); else if (myVeh()) studentFrame(d, this.vt); } } };
 </script>
 </body>

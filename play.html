@@ -77,8 +77,10 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
   #bBrake { right: max(14px, env(safe-area-inset-right)); bottom: calc(max(18px, env(safe-area-inset-bottom)) + min(22vmin, 100px) + 12px); }
   #bJam { bottom: calc(max(18px, env(safe-area-inset-bottom)) + 2 * min(22vmin, 100px) + 26px); }
 }
-.pxEnd { position: absolute; left: max(12px, env(safe-area-inset-left)); top: calc(max(10px, env(safe-area-inset-top)) + 11em); pointer-events: auto; min-height: 40px; font-size: 15px; padding: 4px 12px; opacity: 0.85; }
-@media (orientation: portrait) { .pxEnd { top: calc(max(10px, env(safe-area-inset-top)) + 230px); } }
+/* 結束練習：放左上角（拇指不會放的地方），要連按兩次才結束 */
+.btn.pxEnd { position: absolute; white-space: nowrap; left: max(10px, env(safe-area-inset-left)); top: max(8px, env(safe-area-inset-top)); pointer-events: auto; width: 92px; min-height: 40px; font-size: 15px; padding: 2px 6px; opacity: 0.8; z-index: 3; }
+.btn.pxEnd.arm { background: rgba(170,25,15,0.92); border-color: #ff6a5a; opacity: 1; }
+.hud.px .who { left: calc(max(10px, env(safe-area-inset-left)) + 102px); }
 .stick { position: absolute; left: max(18px, env(safe-area-inset-left)); bottom: max(18px, env(safe-area-inset-bottom)); width: min(36vmin, 170px); height: min(36vmin, 170px); border-radius: 50%; border: 3px solid rgba(255,255,255,0.45); background: rgba(0,0,0,0.25); pointer-events: auto; touch-action: none; }
 .stick i { position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; margin: -21% 0 0 -21%; border-radius: 50%; background: rgba(255,255,255,0.75); box-shadow: 0 0 6px #000; }
 .stick span { position: absolute; left: 0; right: 0; top: -2.6em; text-align: center; font-size: 14px; line-height: 1.2; }
@@ -178,8 +180,11 @@ table.pairs th { color: var(--muted); }
 .qrbig canvas { width: min(80vh, 80vw); height: min(80vh, 80vw); background: #fff; padding: 16px; border-radius: 12px; image-rendering: pixelated; }
 .qrbig b { font-size: 32px; }
 .load { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; font-weight: 900; background: var(--bg); z-index: 40; }
-.hud .tip { position: absolute; left: 50%; transform: translateX(-50%); top: calc(max(10px, env(safe-area-inset-top)) + 9.6em); width: max-content; max-width: min(56vw, 520px); background: rgba(20,70,140,0.88); padding: 6px 14px; border-radius: 10px; font-size: calc(var(--fs) * 0.68); line-height: 1.45; text-align: center; }
-@media (orientation: portrait) { .hud .tip { top: calc(max(10px, env(safe-area-inset-top)) + 240px); max-width: 90vw; } }
+/* 提示框：橫放時放在畫面下方中間，不擋準星；直放時畫面夠高，放在上方 */
+.hud .tip { position: absolute; left: 50%; transform: translateX(-50%); width: max-content; background: rgba(20,70,140,0.88); padding: 6px 14px; border-radius: 10px; font-size: calc(var(--fs) * 0.68); line-height: 1.45; text-align: center; }
+#gTip { bottom: calc(max(18px, env(safe-area-inset-bottom)) + 46px); max-width: min(52vw, 560px); }
+#dTip { bottom: max(18px, env(safe-area-inset-bottom)); max-width: max(200px, calc(100vw - 4 * min(24vmin, 110px) - 80px)); }
+@media (orientation: portrait) { .hud .tip, #gTip, #dTip { top: calc(max(10px, env(safe-area-inset-top)) + 240px); bottom: auto; max-width: 90vw; } }
 .tbox { position: absolute; transform: translate(-50%, -50%); border: 3px solid #ffb15a; border-radius: 8px; box-shadow: 0 0 6px rgba(0,0,0,0.8); }
 .tbox.red { border-color: #ff3b2f; border-width: 4px; box-shadow: 0 0 10px #ff3b2f; }
 .tbox span { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 4px; white-space: nowrap; font-size: calc(var(--fs) * 0.55); color: #ffcf8a; }
@@ -373,7 +378,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.6.1（地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.6.2（提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 const Q = new URLSearchParams(location.search);
 const LOCAL = Q.has('local') || !FIREBASE_CONFIG.databaseURL;
@@ -2233,9 +2238,9 @@ function startPractice(role) {
   SS.aimY = headingAt(v.d); SS.aimP = 0.15; PX.endT = 0;
   setMode(role === 'drive' ? 'drive' : 'gun'); show(null);
   $('hudD').hidden = role !== 'drive'; $('hudG').hidden = role !== 'gun';
-  const who = `<span style="color:${TEAMS[t].c}">單人練習</span><small>${role === 'drive' ? '你開車、電腦當射手' : '你當射手、電腦開車'}・電腦扮演老師</small>`;
+  const who = `<span style="color:${TEAMS[t].c}">單人練習</span><small>${role === 'drive' ? '你開車' : '你當射手'}・其他由電腦扮演</small>`;
   $('dWho').innerHTML = who; $('gWho').innerHTML = who;
-  document.querySelectorAll('.pxEnd').forEach(b => b.hidden = false);
+  $('hudD').classList.add('px'); $('hudG').classList.add('px'); pxEndReset();
 }
 function practiceTick(v, dt) {
   if (!SS.practice) return;
@@ -2246,7 +2251,7 @@ function stopPractice(showRes) {
   if (!SS.practice) return;
   const v = myVeh(); const r = v ? { role: SS.pxRole, arr: v.st === 2, cargo: Math.round(v.cargo), sec: Math.round(W.el), ...v.stats } : null;
   SS.practice = false; SS.mode = 'idle'; SS.fireHeld = false; heliStop(); simReset(); hideVehicles(); W.veh = []; ME.vi = -1; ME.role = '';
-  $('hudD').hidden = true; $('hudG').hidden = true; document.querySelectorAll('.pxEnd').forEach(b => b.hidden = true); for (const m of ringPool) m.visible = false; marksDone(0);
+  $('hudD').hidden = true; $('hudG').hidden = true; document.querySelectorAll('.pxEnd').forEach(b => b.hidden = true); $('hudD').classList.remove('px'); $('hudG').classList.remove('px'); for (const m of ringPool) m.visible = false; marksDone(0);
   if (showRes && r) showPracticeResult(r); else afterPractice();
 }
 // 練習結束：已加入隊伍就回等待畫面，還沒加入就回選隊畫面
@@ -2263,7 +2268,12 @@ function showPracticeResult(r) {
 }
 document.querySelectorAll('.pxD').forEach(b => b.onclick = () => startPractice('drive'));
 document.querySelectorAll('.pxG').forEach(b => b.onclick = () => startPractice('gun'));
-document.querySelectorAll('.pxEnd').forEach(b => b.onclick = () => stopPractice(true));
+// 結束練習要連按兩次：第一次變紅「再按確定」，3 秒內再按才結束，避免玩到一半誤觸
+function pxEndReset() { clearTimeout(PX.armT); document.querySelectorAll('.pxEnd').forEach(b => { b.hidden = !SS.practice; b.classList.remove('arm'); b.textContent = '結束練習'; }); }
+document.querySelectorAll('.pxEnd').forEach(b => b.onclick = () => {
+  if (b.classList.contains('arm')) { pxEndReset(); stopPractice(true); return; }
+  b.classList.add('arm'); b.textContent = '再按確定'; clearTimeout(PX.armT); PX.armT = setTimeout(pxEndReset, 3000);
+});
 window.onDodge = (v) => { if (ROLE === 'student' && v.vi === ME.vi && ME.role === 'drive') { flash('dGood', '閃過了！', 1.4); SFX.good(); } };
 
 /* =========================================================

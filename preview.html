@@ -39,10 +39,6 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .who small { display: block; font-size: 0.75em; color: #dfe6e3; font-weight: 700; }
 .seg { position: absolute; left: 50%; top: max(10px, env(safe-area-inset-top)); transform: translateX(-50%); font-size: calc(var(--fs) * 0.7); text-align: center; }
 .prog { position: absolute; left: 50%; top: calc(max(10px, env(safe-area-inset-top)) + 2.6em); transform: translateX(-50%); width: min(26vw, 300px); height: 8px; border-radius: 4px; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.35); }
-.lanes { position: absolute; left: 50%; transform: translateX(-50%); top: calc(max(10px, env(safe-area-inset-top)) + 2.6em + 16px); display: flex; gap: 3px; font-size: calc(var(--fs) * 0.7); }
-.lanes i { width: 18px; height: 12px; border-radius: 3px; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.45); }
-.lanes i.mv { background: rgba(127,224,138,0.45); }
-.lanes i.on { background: #7fe08a; border-color: #fff; }
 .prog b { position: absolute; top: -5px; width: 4px; height: 16px; border-radius: 2px; background: #fff; }
 .prog em { position: absolute; left: calc(100% + 6px); top: -7px; font-style: normal; font-size: 13px; white-space: nowrap; }
 .hud .warn, .hud .good { position: absolute; left: max(12px, env(safe-area-inset-left)); max-width: min(36vw, 340px); font-size: calc(var(--fs) * 0.78); padding: 5px 12px; border-radius: 8px; line-height: 1.35; }
@@ -79,7 +75,6 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 @media (orientation: portrait) {
   .seg { top: calc(max(10px, env(safe-area-inset-top)) + 64px); }
   .prog { top: calc(max(10px, env(safe-area-inset-top)) + 64px + 3.2em); width: 56vw; }
-  .lanes { top: calc(max(10px, env(safe-area-inset-top)) + 64px + 3.2em + 18px); }
   #bBrake { right: max(14px, env(safe-area-inset-right)); bottom: calc(max(18px, env(safe-area-inset-bottom)) + min(22vmin, 100px) + 12px); }
   #bJam { bottom: calc(max(18px, env(safe-area-inset-bottom)) + 2 * min(22vmin, 100px) + 26px); }
 }
@@ -187,10 +182,10 @@ table.pairs th { color: var(--muted); }
 .qrbig b { font-size: 32px; }
 .load { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; font-weight: 900; background: var(--bg); z-index: 40; }
 /* 提示框：橫放時放在畫面下方中間，不擋準星；直放時畫面夠高，放在上方 */
-.hud .tip { position: absolute; left: 50%; transform: translateX(-50%); width: max-content; background: rgba(20,70,140,0.88); padding: 6px 14px; border-radius: 10px; font-size: calc(var(--fs) * 0.68); line-height: 1.45; text-align: center; }
-#gTip { bottom: calc(max(18px, env(safe-area-inset-bottom)) + 46px); max-width: min(52vw, 560px); }
-#dTip { bottom: max(18px, env(safe-area-inset-bottom)); max-width: max(200px, calc(100vw - 4 * min(24vmin, 110px) - 80px)); }
-@media (orientation: portrait) { .hud .tip, #gTip, #dTip { top: calc(max(10px, env(safe-area-inset-top)) + 240px); bottom: auto; max-width: 90vw; } }
+.hud .tip { position: absolute; left: 50%; transform: translateX(-50%); width: max-content; background: rgba(20,70,140,0.88); padding: 5px 12px; border-radius: 10px; font-size: calc(var(--fs) * 0.58); line-height: 1.4; text-align: center; opacity: 0.88; pointer-events: none; }
+#gTip { bottom: calc(max(18px, env(safe-area-inset-bottom)) + 46px); max-width: min(46vw, 480px); }
+#dTip { left: auto; right: max(12px, env(safe-area-inset-right)); transform: none; top: calc(max(10px, env(safe-area-inset-top)) + 84px); max-width: min(32vw, 300px); text-align: left; }
+@media (orientation: portrait) { .hud .tip, #gTip, #dTip { left: 50%; right: auto; transform: translateX(-50%); text-align: center; top: calc(max(10px, env(safe-area-inset-top)) + 200px); bottom: auto; max-width: 88vw; } }
 .tbox { position: absolute; transform: translate(-50%, -50%); border: 3px solid #ffb15a; border-radius: 8px; box-shadow: 0 0 6px rgba(0,0,0,0.8); }
 .tbox.red { border-color: #ff3b2f; border-width: 4px; box-shadow: 0 0 10px #ff3b2f; }
 .tbox span { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 4px; white-space: nowrap; font-size: calc(var(--fs) * 0.55); color: #ffcf8a; }
@@ -238,7 +233,6 @@ table.pairs th { color: var(--muted); }
     <div class="t who" id="dWho"></div>
     <div class="seg" id="dSeg"></div>
     <div class="prog" id="dProg"><em>終點</em></div>
-    <div class="lanes" id="dLanes"></div>
     <div class="bars"><div><span>裝甲</span><i class="arm"><u id="dArm"></u></i></div><div><span>補給</span><i><u id="dCargo"></u></i></div><div class="s" id="dSpd"></div></div>
     <div class="warn" id="dWarn" hidden></div>
     <div class="tip" id="dTip" hidden></div>
@@ -387,7 +381,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.7.1（卡車速度提高 45%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.7.2（拿掉車道指示；提示一次一則、不擋畫面；卡車速度再提高 20%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 (function checkNewer() {
   const mine = VERSION.split('（')[0];
@@ -1319,7 +1313,7 @@ const SFX = (() => {
 const LANE = 3.8, NL = 8; // 八線道，車道編號 0（最左）到 7（最右）
 const laneX = (l) => (l - (NL - 1) / 2) * LANE;
 const laneOf = (x) => clamp(Math.round(x / LANE + (NL - 1) / 2), 0, NL - 1);
-const SPD = { cruise: 23.2, gas: 30.5, brake: 3 }; // 既定速度與加速都比原本（16、21）快 45%
+const SPD = { cruise: 27.8, gas: 36.6, brake: 3 }; // 既定速度與加速：原本 16、21，先提高 45%，再提高 20%
 const ARMOR = 100, DOWN_SEC = 6, REPAIR_TO = 50;
 const DMG = { mine: 30, mineCargo: 6, crash: 6, drone: 15, droneCargo: 3, shellNear: 25, shellFar: 10, rocketNear: 13, rocketFar: 6, cannon: 2.5, wing: 1.2, downCargo: 20 };
 const DRONE = { radioSpd: 34, fiberSpd: 30, lockT: 0.65, yellowT: 3.0, redT: 1.4 };
@@ -1363,9 +1357,9 @@ function driveStep(v, dt, inp, others) {
   else {
     let want = inp.brake ? SPD.brake : inp.gas ? SPD.gas : SPD.cruise; if (inp.brake && v.v < 4) want = 0;
     // 跟車：同車道前方有車就不能撞上去
-    let gap = 1e9, lv = 0; for (const o of others) { if (o === v || !o) continue; const od = o.rd !== undefined ? o.rd : o.d; const dd = od - v.d; if (dd <= 0 || dd > 55) continue; if (Math.abs((o.rx !== undefined ? o.rx : o.x) - v.x) > 2.6) continue; if (dd < gap) { gap = dd; lv = o.v; } }
-    if (gap < 19) want = Math.min(want, gap < 13 ? Math.max(0, lv - 3) : lv); // 車速變快，跟車距離也拉長
-    v.blocked = gap < 19 && lv < 9;
+    let gap = 1e9, lv = 0; for (const o of others) { if (o === v || !o) continue; const od = o.rd !== undefined ? o.rd : o.d; const dd = od - v.d; if (dd <= 0 || dd > 66) continue; if (Math.abs((o.rx !== undefined ? o.rx : o.x) - v.x) > 2.6) continue; if (dd < gap) { gap = dd; lv = o.v; } }
+    if (gap < 23) want = Math.min(want, gap < 15 ? Math.max(0, lv - 3) : lv); // 車速變快，跟車距離也拉長
+    v.blocked = gap < 23 && lv < 11;
     const acc = want > v.v ? 3.6 : inp.brake ? 11 : 6; v.v += clamp(want - v.v, -acc * dt, acc * dt);
   }
   // 學生自己開：按住 ◀ ▶ 才往旁邊移動，放開就停在當下的位置（不會自動對齊車道中央）
@@ -2109,7 +2103,7 @@ function startRun() {
 function stopRun() {
   if (SS.mode === 'idle') return;
   SS.mode = 'idle'; if (SS.wUnsub) { SS.wUnsub(); SS.wUnsub = null; } if (SS.vdUnsub) { SS.vdUnsub(); SS.vdUnsub = null; }
-  $('hudD').hidden = true; $('hudG').hidden = true; SS.fireHeld = false; SS.inp.l = SS.inp.r = false;
+  $('hudD').hidden = true; $('hudG').hidden = true; SS.fireHeld = false; SS.inp.l = SS.inp.r = false; TIPQ.q = [];
   if (ME.vi >= 0) { NET.remove('vd/' + ME.vi); NET.remove('vg/' + ME.vi); }
 }
 
@@ -2149,11 +2143,17 @@ addEventListener('keyup', (e) => { if (e.code === 'ArrowLeft' || e.code === 'Key
 
 /* ---------- 第一次遇到某種狀況時跳出的小提示（每個只出現一次） ---------- */
 const TIPS = new Set();
-function tip(key, text) { if (TIPS.has(key)) return; TIPS.add(key); const id = ME.role === 'drive' ? 'dTip' : 'gTip'; const el = $(id); el.textContent = '提示：' + text; el.hidden = false; FLASH[id] = performance.now() + 6500; }
+const TIPQ = { q: [], next: 0 };
+function tip(key, text) { if (TIPS.has(key)) return; TIPS.add(key); TIPQ.q.push(text); }
+function tipTick() {
+  const id = ME.role === 'drive' ? 'dTip' : 'gTip'; const now = performance.now();
+  if (!TIPQ.q.length || FLASH[id] || now < TIPQ.next) return;
+  const el = $(id); el.textContent = TIPQ.q.shift(); el.hidden = false; FLASH[id] = now + 4500; TIPQ.next = now + 6500;
+}
 /* ---------- 畫面上的提示 ---------- */
 const FLASH = {};
 function flash(id, text, sec = 2) { const el = $(id); el.textContent = text; el.hidden = false; FLASH[id] = performance.now() + sec * 1000; }
-function flashTick() { const now = performance.now(); for (const id in FLASH) if (FLASH[id] && now > FLASH[id]) { $(id).hidden = true; FLASH[id] = 0; } }
+function flashTick() { tipTick(); const now = performance.now(); for (const id in FLASH) if (FLASH[id] && now > FLASH[id]) { $(id).hidden = true; FLASH[id] = 0; } }
 const MARKS = { pool: [] };
 function markAt(host, i, p, text, cls, box) {
   let el = MARKS.pool[i]; if (!el) { el = document.createElement('div'); MARKS.pool[i] = el; }
@@ -2309,9 +2309,6 @@ function segHud(v, id) {
 function progHud(v) {
   const host = $('dProg'); if (!host.querySelector('b')) { const b = document.createElement('b'); host.appendChild(b); }
   host.querySelector('b').style.left = clamp(v.rd / FINISH, 0, 1) * 100 + '%';
-  // 車道指示：八格，自己的車道亮綠色，換車道時馬上看得出來
-  const ln = $('dLanes'); if (!ln.children.length) for (let i = 0; i < NL; i++) ln.appendChild(document.createElement('i'));
-  const tgt = v.lane, cur = laneOf(v.x); if (ln.dataset.k !== tgt + ',' + cur) { ln.dataset.k = tgt + ',' + cur; [...ln.children].forEach((c, i) => c.className = i === tgt ? 'on' : i === cur ? 'mv' : ''); }
 }
 function gunHud(v, dt, now) {
   $('gArm').style.width = clamp(v.hp, 0, 100) + '%'; $('gCargo').style.width = clamp(v.cargo, 0, 100) + '%';
@@ -2421,7 +2418,7 @@ function stopPractice(showRes) {
   if (!SS.practice) return;
   const v = myVeh(); const r = v ? { role: SS.pxRole, arr: v.st === 2, cargo: Math.round(v.cargo), sec: Math.round(W.el), ...v.stats } : null;
   SS.practice = false; SS.mode = 'idle'; SS.fireHeld = false; heliStop(); simReset(); hideVehicles(); W.veh = []; ME.vi = -1; ME.role = '';
-  $('hudD').hidden = true; $('hudG').hidden = true; document.querySelectorAll('.pxEnd').forEach(b => b.hidden = true); $('hudD').classList.remove('px'); $('hudG').classList.remove('px'); for (const m of ringPool) m.visible = false; marksDone(0);
+  $('hudD').hidden = true; $('hudG').hidden = true; document.querySelectorAll('.pxEnd').forEach(b => b.hidden = true); $('hudD').classList.remove('px'); $('hudG').classList.remove('px'); TIPQ.q = []; for (const m of ringPool) m.visible = false; marksDone(0);
   if (showRes && r) showPracticeResult(r); else afterPractice();
 }
 // 練習結束：已加入隊伍就回等待畫面，還沒加入就回選隊畫面

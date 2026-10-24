@@ -373,7 +373,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.6（八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.6.1（地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 const Q = new URLSearchParams(location.search);
 const LOCAL = Q.has('local') || !FIREBASE_CONFIG.databaseURL;
@@ -2620,7 +2620,7 @@ function mapClick(x, y) {
   const k = TS.wpn === 'fiber' ? 'fiber' : 'fpv'; if (SIM.stock[k] <= 0) { tmsg(`${WPN[k]}用完了，等一下會補充`); return; }
   SIM.stock[k]--; spawnDrone(v, k === 'fiber'); TS.flashV = { v, t: 1.2 }; tmsg(`已派出${WPN[k]} → ${TEAMS[v.team].name} ${v.no} 號車`); SFX.click();
 }
-$('mCmd').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.w) { TS.wpn = b.dataset.w; SFX.click(); } if (b.dataset.h) takeHeli(); });
+$('mCmd').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.home) { MAP.off.set(0, 0, 0); MAP.h = 300; SNAPCAM = true; return; } if (b.dataset.w) { TS.wpn = b.dataset.w; SFX.click(); } if (b.dataset.h) takeHeli(); });
 
 /* ---------- 每張畫面 ---------- */
 let SNAPCAM = true; const TAGS = [];
@@ -2658,7 +2658,7 @@ function teacherFrame(dt, now) {
 function teamStats() { return [0, 1, 2, 3].map(t => { const l = W.veh.filter(v => v && v.team === t); if (!l.length) return null; return { avg: Math.round(l.reduce((a, v) => a + v.cargo, 0) / l.length), arr: l.filter(v => v.st === 2).length, n: l.length }; }); }
 function mapCam(dt, now) {
   const act = W.veh.filter(v => v && v.st !== 2); let fd = 60;
-  if (act.length) { const ds = act.map(v => v.d).sort((a, b) => a - b); fd = ds[Math.floor(ds.length / 2)] + 60; } else if (W.veh.length) fd = FINISH + 60;
+  if (act.length) { const ds = act.map(v => v.d).sort((a, b) => a - b); fd = ds[Math.floor(ds.length / 2)] + 25; } else if (W.veh.length) fd = FINISH + 60;
   const p = at(clamp(fd, 0, LEN)); const want = V(p.x, 0, p.z).add(MAP.off);
   if (SNAPCAM) { MAP.focus.copy(want); SNAPCAM = false; } else MAP.focus.lerp(want, Math.min(1, dt * 1.5));
   camera.position.set(MAP.focus.x, MAP.h, MAP.focus.z + MAP.h * 0.62); camera.lookAt(MAP.focus); camera.updateMatrixWorld();
@@ -2688,6 +2688,16 @@ function teacherHud(dt, now) {
     let hov = null, hd = 46;
     for (const v of W.veh) { if (!v) continue; const q = proj(v.obj.root.position); if (!q.on) continue; const d = Math.hypot(q.x - MOUSE.x, q.y - MOUSE.y); if (d < hd) { hd = d; hov = v; } }
     MOUSE.hover = TS.wpn === 'art' || TOUCH ? null : hov;
+    // 地圖被拖走或縮放到看不到車隊：顯示方向箭頭，2.5 秒後自動移回車隊
+    let onScr = 0; for (const v of W.veh) { if (!v || v.st === 2) continue; const q = proj(v.obj.root.position); if (q.on && q.x > 0 && q.x < innerWidth && q.y > 0 && q.y < innerHeight) onScr++; }
+    const actN = W.veh.filter(v => v && v.st !== 2).length;
+    if (busy() && actN && !onScr) {
+      TS.lostT = (TS.lostT || 0) + dt;
+      const c = W.veh.filter(v => v && v.st !== 2).reduce((a, v) => a.add(v.obj.root.position), V()).divideScalar(actN); const q = proj(c);
+      let dx = q.x - innerWidth / 2, dy = q.y - innerHeight / 2; if (!q.on) { dx = -dx; dy = -dy; } const a = Math.atan2(dy, dx); const el = tag(ti++); el.className = 'vtag sel';
+      el.style.left = (innerWidth / 2 + Math.cos(a) * innerWidth * 0.38) + 'px'; el.style.top = (innerHeight / 2 + Math.sin(a) * innerHeight * 0.36) + 'px'; el.innerHTML = `<b style="color:#ffd84a;font-size:20px">車隊在這邊 <span style="display:inline-block;transform:rotate(${a}rad)">➤</span></b>`;
+      if (TS.lostT > 2.5 && PTRS.size === 0) { MAP.off.multiplyScalar(Math.max(0, 1 - dt * 3)); MAP.h += (300 - MAP.h) * Math.min(1, dt * 2); }
+    } else TS.lostT = 0;
     for (const v of W.veh) {
       if (!v) continue; const q = proj(v.obj.root.position.clone().add(V(0, 4, 0))); if (!q.on) continue; const el = tag(ti++);
       el.className = 'vtag' + (v === MOUSE.hover || (TS.flashV && TS.flashV.v === v && TS.flashV.t > 0) ? ' sel' : ''); el.style.left = q.x + 'px'; el.style.top = q.y + 'px';
@@ -2703,6 +2713,7 @@ function teacherHud(dt, now) {
       <button class="btn wbtn${sel('cam')}" data-w="cam">跟拍一台車<span>投影幕切成那台車的追車畫面</span></button>
       <button class="btn wbtn" data-h="1">搭乘攻擊直升機${H.cool > 0 && !H.on ? `<b class="n">（維修 ${Math.ceil(H.cool)} 秒）</b>` : ''}<span>親自用機砲、火箭攻擊</span></button></div>
       <div class="step">② ${w === 'art' ? '點道路上要轟炸的位置（會蓋住約三條車道）' : w === 'cam' ? '點地圖上的一台車開始跟拍' : `點地圖上的一台車，${WPN[w]}就會飛過去`}</div>
+      <button class="btn wbtn" data-home="1">回到車隊<span>地圖拖走了或縮放太多時按這裡</span></button>
       <small class="long">拖曳移動地圖、滾輪或兩指縮放、連點兩下回到車隊。電腦自動攻擊：${SIM.auto ? '開' : '關'}，難度：${['簡單', '普通', '困難'][SIM.diff]}</small>${TS.msgT > 0 ? `<small style="color:#ffb15a;font-size:16px">${TS.msg}</small>` : ''}`);
     else setHTML('mCmd', `<h2>補給公路</h2><small>學生用手機掃 QR Code 加入，在左邊面板按「上場」開始一輪。<br>開始後這裡會變成敵方指揮所：派無人機、下令砲擊、搭乘攻擊直升機。</small>`);
   } else if (TS.view === 'heli') {

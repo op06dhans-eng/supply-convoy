@@ -387,7 +387,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.7.0（路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.7.1（卡車速度提高 45%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 (function checkNewer() {
   const mine = VERSION.split('（')[0];
@@ -1319,7 +1319,7 @@ const SFX = (() => {
 const LANE = 3.8, NL = 8; // 八線道，車道編號 0（最左）到 7（最右）
 const laneX = (l) => (l - (NL - 1) / 2) * LANE;
 const laneOf = (x) => clamp(Math.round(x / LANE + (NL - 1) / 2), 0, NL - 1);
-const SPD = { cruise: 16, gas: 21, brake: 3 };
+const SPD = { cruise: 23.2, gas: 30.5, brake: 3 }; // 既定速度與加速都比原本（16、21）快 45%
 const ARMOR = 100, DOWN_SEC = 6, REPAIR_TO = 50;
 const DMG = { mine: 30, mineCargo: 6, crash: 6, drone: 15, droneCargo: 3, shellNear: 25, shellFar: 10, rocketNear: 13, rocketFar: 6, cannon: 2.5, wing: 1.2, downCargo: 20 };
 const DRONE = { radioSpd: 34, fiberSpd: 30, lockT: 0.65, yellowT: 3.0, redT: 1.4 };
@@ -1363,9 +1363,9 @@ function driveStep(v, dt, inp, others) {
   else {
     let want = inp.brake ? SPD.brake : inp.gas ? SPD.gas : SPD.cruise; if (inp.brake && v.v < 4) want = 0;
     // 跟車：同車道前方有車就不能撞上去
-    let gap = 1e9, lv = 0; for (const o of others) { if (o === v || !o) continue; const od = o.rd !== undefined ? o.rd : o.d; const dd = od - v.d; if (dd <= 0 || dd > 40) continue; if (Math.abs((o.rx !== undefined ? o.rx : o.x) - v.x) > 2.6) continue; if (dd < gap) { gap = dd; lv = o.v; } }
-    if (gap < 13) want = Math.min(want, gap < 9 ? Math.max(0, lv - 3) : lv);
-    v.blocked = gap < 13 && lv < 6;
+    let gap = 1e9, lv = 0; for (const o of others) { if (o === v || !o) continue; const od = o.rd !== undefined ? o.rd : o.d; const dd = od - v.d; if (dd <= 0 || dd > 55) continue; if (Math.abs((o.rx !== undefined ? o.rx : o.x) - v.x) > 2.6) continue; if (dd < gap) { gap = dd; lv = o.v; } }
+    if (gap < 19) want = Math.min(want, gap < 13 ? Math.max(0, lv - 3) : lv); // 車速變快，跟車距離也拉長
+    v.blocked = gap < 19 && lv < 9;
     const acc = want > v.v ? 3.6 : inp.brake ? 11 : 6; v.v += clamp(want - v.v, -acc * dt, acc * dt);
   }
   // 學生自己開：按住 ◀ ▶ 才往旁邊移動，放開就停在當下的位置（不會自動對齊車道中央）

@@ -351,7 +351,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.4（選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.5（機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 const Q = new URLSearchParams(location.search);
 const LOCAL = true; // 預覽頁：只用同一台電腦練習連線
@@ -804,6 +804,27 @@ const TR = (() => {
   };
 })();
 
+/* ---------- 直升機機砲的粗曳光彈：一條條發亮的火線（離鏡頭越遠畫得越粗，遠處也看得到） ---------- */
+const HT = (() => {
+  const geo = new THREE.CylinderGeometry(1, 1, 1, 6, 1, true).rotateX(Math.PI / 2).translate(0, 0, -0.5); // 沿 z 軸、尾端在原點後方
+  const core = new THREE.MeshBasicMaterial({ color: 0xfff2c0, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+  const glow = new THREE.MeshBasicMaterial({ color: 0xff8a20, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+  const pool = []; for (let i = 0; i < 80; i++) { const g = new THREE.Group(); const c = new THREE.Mesh(geo, core), o = new THREE.Mesh(geo, glow); o.scale.set(2.6, 2.6, 1); g.add(o, c); g.visible = false; scene.add(g); pool.push({ g, o, c, a: V(), b: V(), t: 1, dur: 1, onEnd: null }); }
+  let k = 0; const P = V();
+  return {
+    add(a, b, speed = 1000, onEnd) { const q = pool[k]; k = (k + 1) % pool.length; q.a.copy(a); q.b.copy(b); q.t = 0; q.dur = Math.max(0.04, a.distanceTo(b) / speed); q.onEnd = onEnd; q.g.visible = true; },
+    update(dt) {
+      for (const q of pool) {
+        if (!q.g.visible) continue; q.t += dt / q.dur;
+        if (q.t >= 1) { q.g.visible = false; if (q.onEnd) q.onEnd(q.b); continue; }
+        P.copy(q.a).lerp(q.b, q.t); q.g.position.copy(P); q.g.lookAt(q.b);
+        const d = P.distanceTo(camera.position); const r = Math.max(0.12, d * 0.0032); const len = Math.min(24, 9 + d * 0.04, q.a.distanceTo(P) + 0.5); // 剛射出時從砲口長出來
+        q.g.scale.set(r, r, len);
+      }
+    },
+  };
+})();
+
 /* ---------- 地上的警示：無人機瞄準圈、砲擊範圍 ---------- */
 const ringGeo = new THREE.RingGeometry(0.88, 1, 48);
 const ringPool = [];
@@ -972,6 +993,14 @@ function makeWingman() {
 }
 
 /* ---------- 攻擊直升機（模型：Mi-28N Havoc，作者 Rukh3D，CC 姓名標示 4.0） ---------- */
+// 機砲砲口火焰：開火時在砲口閃動的一團火舌（朝向瞄準點）
+const MUZ = (() => {
+  const g = new THREE.Group(); const mat = new THREE.MeshBasicMaterial({ color: 0xffb040, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.55, 3.2, 8, 1, true).rotateX(Math.PI / 2).translate(0, 0, 1.6), mat); g.add(cone);
+  const core = new THREE.Mesh(new THREE.ConeGeometry(0.28, 2.0, 8, 1, true).rotateX(Math.PI / 2).translate(0, 0, 1.0), new THREE.MeshBasicMaterial({ color: 0xfff4d0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); g.add(core);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, color: 0xffa040, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, depthTest: false, fog: false })); sp.scale.setScalar(4.5); sp.renderOrder = 5; g.add(sp);
+  g.visible = false; scene.add(g); return { g, cone, core, sp };
+})();
 const HELI = { g: new THREE.Group(), mixer: null, loaded: false, gun: V(0, 0.9, 5.6), podL: V(-2.7, 1.7, 0.6), podR: V(2.7, 1.7, 0.6) };
 scene.add(HELI.g); HELI.g.visible = false;
 function onHeli(gl) {
@@ -1070,7 +1099,7 @@ const SFX = (() => {
   function lockLoop() { const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = 600; const g = ctx.createGain(); g.gain.value = 0; o.connect(g); g.connect(master); o.start(); return { o, g }; }
   /* ---- 真實錄音：機砲（老師提供，來源 Pixabay）。直升機機砲做成每秒 9 發、車頂機槍做成每秒 11 發、音調較高 ---- */
   let gunRaw = null; const G = {};
-  function loadGun() { fetch('sfx/cannon.mp3').then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then(b => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej))).then(buf => { gunRaw = buf; G.heli = buildGun(buf, 8.5, 0.74, 0.1, 0.9, 0.45); G.mg = buildGun(buf, 11, 1.45, 0.035, 0, 0); }).catch(e => console.warn('砲聲檔載入失敗', e)); }
+  function loadGun() { fetch('sfx/cannon.mp3').then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then(b => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej))).then(buf => { gunRaw = buf; G.heli = buildGun(buf, 12.6, 0.74, 0.075, 0.85, 0.45); G.mg = buildGun(buf, 11, 1.45, 0.035, 0, 0); }).catch(e => console.warn('砲聲檔載入失敗', e)); }
   // 用真實錄音拼成連發：sub＝每一發加一個低頻「咚」的厚度；send＝回音量
   function buildGun(buf, RATE, pitch, tau, sub, send) {
     const sr = buf.sampleRate; let a = buf.getChannelData(0);
@@ -1174,6 +1203,7 @@ const SPD = { cruise: 16, gas: 21, brake: 3 };
 const ARMOR = 100, DOWN_SEC = 6, REPAIR_TO = 50;
 const DMG = { drone: 22, droneCargo: 4, shellNear: 25, shellFar: 10, rocketNear: 13, rocketFar: 6, cannon: 2.5, wing: 1.2, downCargo: 20 };
 const DRONE = { radioSpd: 34, fiberSpd: 30, lockT: 0.65, yellowT: 3.0, redT: 1.4 };
+const GUN_RATE = 12.6; // 直升機機砲每秒發數（原本 9 發，提高四成）
 const AI_KILL = 0.09; // 電腦射手每秒打下無人機的機率（每座）
 const HELI_HP = 3, FLARE_MAX = 8, ROCKET_MAX = 36, HELI_COOL = 45, FLARE_WIN = 1.6, LOCK_SEC = 2.5, LOCK_RANGE = 650, MG_PER_HP = 60;
 const W = {
@@ -1319,19 +1349,23 @@ function renderWorld(dt, now, opt = {}) {
   let zi = 0;
   for (const z of W.zones.values()) { if (zi >= zonePool.length) break; const m = zonePool[zi++]; if (!m.userData.z || m.userData.z !== z.id) { setZone(m, z.d0, z.d1, z.lane > 0 ? -0.2 : -4.4, z.lane < 0 ? 0.2 : 4.4); m.userData.z = z.id; } m.visible = now < z.tf + z.dur; const left = (z.tf - now) / 1000; m.material.opacity = left > 0 ? 0.35 + 0.25 * (Math.sin(T * Math.PI * 2 * (left < 1.5 ? 2.5 : 1.2)) * 0.5 + 0.5) : 0.25; }
   for (; zi < zonePool.length; zi++) zonePool[zi].visible = false;
-  TR.update(dt); updatePuffs(dt);
+  TR.update(dt); HT.update(dt); updatePuffs(dt);
 }
 const _q = new THREE.Quaternion();
 function renderHeli(dt, now, opt) {
   const H = W.heli; const g = HELI.g;
-  g.visible = H.on && H.state !== 3;
+  g.visible = H.on && H.state !== 3; if (!g.visible) MUZ.g.visible = false;
   if (g.visible) {
     if (opt.client) { const age = Math.min(1, (now - H.st) / 1000); TMPV.copy(H.sp).addScaledVector(H.vel, age); H.rp = H.rp || V(); H.rp.lerp(TMPV, Math.min(1, dt * 8)); if (H.rp.distanceTo(TMPV) > 60) H.rp.copy(TMPV); } else { H.rp = H.p; }
     g.position.copy(H.rp); g.rotation.set(0, H.yaw, 0); g.rotateX(-H.vp); g.rotateZ(H.vr);
     if (HELI.mixer) HELI.mixer.update(dt * 2.5);
     if (H.state === 2 && R() < 0.6) puff(H.rp.clone().add(V(0, 1, -2)), V(0, 2, 0), 2.5, 1.5, 6, 0x2a2826, false, 0.7);
     // 機砲曳光彈
-    if (H.fire) { H.gT = (H.gT || 0) - dt; if (H.gT <= 0) { H.gT = 1 / 9; const a = HELI.gun.clone().applyMatrix4(g.matrixWorld); const sp = 2 + a.distanceTo(H.aim) * 0.004; const b = H.aim.clone().add(V((R() - 0.5) * 2 * sp, 0, (R() - 0.5) * 2 * sp)); b.y = Math.max(0.1, b.y); TR.add(a, b, 1000, 0xffb070, (q) => { puff(q.clone().add(V(0, 0.3, 0)), V((R() - 0.5) * 3, 2 + R() * 2, (R() - 0.5) * 3), 0.6, 0.6, 2.2, 0x7a6a58, false, 0.6); puff(q, V(), 0.08, 1.4, 0.4, 0xffd080, true, 1); }); puff(a, V(), 0.05, 1.2, 0.4, 0xffc070, true, 1); } }
+    // 機砲：砲口火舌＋一條條粗曳光彈（每秒約 12.6 發）
+    MUZ.g.visible = H.fire && g.visible;
+    if (H.fire) { g.updateMatrixWorld(true); const a0 = HELI.gun.clone().applyMatrix4(g.matrixWorld); MUZ.g.position.copy(a0).addScaledVector(H.aim.clone().sub(a0).normalize(), 1.2); MUZ.g.lookAt(H.aim); const f = 0.7 + R() * 0.6; MUZ.cone.scale.set(f, f, 0.8 + R() * 0.7); MUZ.core.scale.set(f, f, f); MUZ.sp.material.opacity = 0.6 + R() * 0.4; MUZ.sp.scale.setScalar(3.5 + R() * 2.5); MUZ.g.rotateZ(R() * 6);
+      H.gT = (H.gT || 0) - dt; while (H.gT <= 0) { H.gT += 1 / GUN_RATE; const a = a0; const sp = 2 + a.distanceTo(H.aim) * 0.004; const b = H.aim.clone().add(V((R() - 0.5) * 2 * sp, 0, (R() - 0.5) * 2 * sp)); if (H.lead) b.addScaledVector(H.lead, a.distanceTo(H.aim) / 1000); b.y = Math.max(0.1, b.y); HT.add(a, b, 420, (q) => { puff(q.clone().add(V(0, 0.3, 0)), V((R() - 0.5) * 3, 2 + R() * 2, (R() - 0.5) * 3), 0.6, 0.6, 2.2, 0x7a6a58, false, 0.6); puff(q, V(), 0.1, 1.8, 0.5, 0xffd080, true, 1); }); } }
+    else H.gT = 0;
   }
   for (const w of W.wing) {
     const m = w.mesh; m.visible = H.on && w.alive && H.state !== 3;
@@ -1531,7 +1565,7 @@ function heliFly(dt, inp0) {
   H.vr = lerp(H.vr, inp.yaw * 0.5, dt * 4); H.vp = lerp(H.vp, -inp.climb * 0.16 + (inp.boost ? -0.06 : 0) - 0.04, dt * 4);
   // 機砲
   H.fire = !!inp.gun;
-  if (H.fire) { H.gAcc = (H.gAcc || 0) + dt * 9; while (H.gAcc >= 1) { H.gAcc--; const dist = H.p.distanceTo(H.aim); if (dist > 1600) continue; const sp = 2 + dist * 0.004; const lat = (R() - 0.5) * 2 * sp, lon = (R() - 0.5) * 2 * sp; const lt = H.lead ? dist / 1000 : 0; const ix = H.aim.x + lat + (H.lead ? H.lead.x * lt : 0), iz = H.aim.z + lon + (H.lead ? H.lead.z * lt : 0); const n = nearRoad(ix, iz, 1); if (n.d < 0 || inTunnel(n.d)) continue; for (const v of W.veh) { if (!v || v.st !== 0) continue; const dd = Math.max(0, Math.abs(v.d - n.d) - 3.4), dx = Math.max(0, Math.abs(v.x - n.lat) - 1.3); if (Math.hypot(dd, dx) < 1.0) damage(v, DMG.cannon, 'cannon'); } } }
+  if (H.fire) { H.gAcc = (H.gAcc || 0) + dt * GUN_RATE; while (H.gAcc >= 1) { H.gAcc--; const dist = H.p.distanceTo(H.aim); if (dist > 1600) continue; const sp = 2 + dist * 0.004; const lat = (R() - 0.5) * 2 * sp, lon = (R() - 0.5) * 2 * sp; const lt = H.lead ? dist / 1000 : 0; const ix = H.aim.x + lat + (H.lead ? H.lead.x * lt : 0), iz = H.aim.z + lon + (H.lead ? H.lead.z * lt : 0); const n = nearRoad(ix, iz, 1); if (n.d < 0 || inTunnel(n.d)) continue; for (const v of W.veh) { if (!v || v.st !== 0) continue; const dd = Math.max(0, Math.abs(v.d - n.d) - 3.4), dx = Math.max(0, Math.abs(v.x - n.lat) - 1.3); if (Math.hypot(dd, dx) < 1.0) damage(v, DMG.cannon, 'cannon'); } } }
   // 火箭（一次四枚，左右交替）
   H.rkT -= dt;
   if (inp.rocket && H.rkT <= 0 && H.rockets >= 6) { H.rkT = 1.8; H.rockets -= 6; for (let i = 0; i < 6; i++) SIM.rocketQ.push({ at: NET.now() + i * 90, side: i % 2 }); } // 一次齊射 6 枚，左右交替

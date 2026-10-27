@@ -2680,7 +2680,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.8.1（下載的檔案直接打開也能顯示 QR Code 和材質；車輛標籤不再疊在一起；路線加長 50%，一趟約 3 分鐘；修正進隧道後看不到車：鏡頭在隧道、防護網、偽裝網底下自動降低，指揮地圖拿掉隧道頂；拿掉車道指示；提示一次一則、不擋畫面；卡車速度再提高 20%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.8.2（修正直升機機砲有時停不下來；下載的檔案直接打開也能顯示 QR Code 和材質；車輛標籤不再疊在一起；路線加長 50%，一趟約 3 分鐘；修正進隧道後看不到車：鏡頭在隧道、防護網、偽裝網底下自動降低，指揮地圖拿掉隧道頂；拿掉車道指示；提示一次一則、不擋畫面；卡車速度再提高 20%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 // 直接在電腦上打開下載的檔案時（網址是 file://），旁邊沒有圖檔、模型和音效資料夾，改從 GitHub 網站載入
 const ASSET = location.protocol === 'file:' ? 'https://op06dhans-eng.github.io/supply-convoy/' : '';
@@ -4049,7 +4049,7 @@ function heliFly(dt, inp0) {
   H.vel.copy(H.p).sub(before).divideScalar(Math.max(dt, 1e-3));
   H.vr = lerp(H.vr, inp.yaw * 0.5, dt * 4); H.vp = lerp(H.vp, -inp.climb * 0.16 + (inp.boost ? -0.06 : 0) - 0.04, dt * 4);
   // 機砲
-  H.fire = !!inp.gun;
+  H.fire = !!inp.gun && H.state === 0;
   if (H.fire) { H.gAcc = (H.gAcc || 0) + dt * GUN_RATE; while (H.gAcc >= 1) { H.gAcc--; const dist = H.p.distanceTo(H.aim); if (dist > 1600) continue; const sp = 2 + dist * 0.004; const lat = (R() - 0.5) * 2 * sp, lon = (R() - 0.5) * 2 * sp; const lt = H.lead ? dist / 1000 : 0; const ix = H.aim.x + lat + (H.lead ? H.lead.x * lt : 0), iz = H.aim.z + lon + (H.lead ? H.lead.z * lt : 0); const n = nearRoad(ix, iz, 1); if (n.d < 0 || inTunnel(n.d)) continue; for (const v of W.veh) { if (!v || v.st !== 0) continue; const dd = Math.max(0, Math.abs(v.d - n.d) - 3.4), dx = Math.max(0, Math.abs(v.x - n.lat) - 1.3); if (Math.hypot(dd, dx) < 1.0) damage(v, DMG.cannon, 'cannon'); } } }
   // 火箭（一次四枚，左右交替）
   H.rkT -= dt;
@@ -4947,6 +4947,7 @@ const MAP = { off: V(), h: 300, focus: V() };
 const TQ = { rocket: false, wing: false, flare: false }; // 很快按一下也算數（手機或電腦卡頓時不會漏掉）
 const HIN = { yaw: 0, climb: 0, gun: false, rocket: false, wing: false, flare: false, boost: false }; // 畫面上的搖桿與按鈕
 function setTeacherView(v) {
+  if (v !== TS.view) releaseAll();
   TS.view = v; $('hudM').hidden = v !== 'map'; $('hudH').hidden = v !== 'heli'; $('fBar').hidden = v !== 'follow'; $('rpBar').hidden = v !== 'replay';
   view.classList.toggle('tmap', v === 'map'); view.classList.toggle('theli', v === 'heli');
   document.querySelectorAll('#vSwitch button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
@@ -4997,7 +4998,7 @@ function followRings(v, now) {
 function togglePause() {
   if (!busy()) { tmsg('一輪開始後才能暫停'); return; }
   const now = NET.now();
-  if (!TS.paused) { TS.paused = true; W.paused = true; TS.pauseAt = now; if (!TS.rehearsal) NET.update('meta', { paused: 1 }); }
+  if (!TS.paused) { TS.paused = true; W.paused = true; TS.pauseAt = now; releaseAll(); W.heli.fire = false; W.wing.forEach(w => { w.fire = false; }); if (!TS.rehearsal) NET.update('meta', { paused: 1 }); }
   else {
     const sh = now - TS.pauseAt; TS.paused = false; W.paused = false; TS.endsAt += sh; if (TS.phase === 'count') TS.startAt += sh; W.t0 += sh;
     for (const dr of W.drones.values()) if (dr.lock) dr.tImp += sh; for (const z of W.zones.values()) z.tf += sh; for (const q of SIM.rocketQ) q.at += sh; W.heli.flareT += sh;
@@ -5048,18 +5049,34 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => { KEY[e.code] = false; });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+// 滑鼠按鍵狀態一律看 e.buttons（目前實際按著的鍵）：
+// 同時按住左鍵（機砲）又按右鍵（火箭）時，瀏覽器只送「移動」不送「放開」，舊寫法會讓機砲一直射
+function mouseSync(e, canSet) {
+  if (e.pointerType !== 'mouse') return; const l = !!(e.buttons & 1), r = !!(e.buttons & 2);
+  if (canSet && TS.view === 'heli') { if (r && !MOUSE.r) TQ.rocket = true; MOUSE.l = l; MOUSE.r = r; }
+  else { MOUSE.l = MOUSE.l && l; MOUSE.r = MOUSE.r && r; }
+}
+// 放開手指、切到別的視窗、切換畫面時：所有直升機按鍵一律放開
+function releaseAll() {
+  MOUSE.l = MOUSE.r = false; for (const k in KEY) KEY[k] = false;
+  for (const k of ['gun', 'rocket', 'wing', 'flare', 'boost']) HIN[k] = false; HIN.yaw = HIN.climb = 0;
+  document.querySelectorAll('#hudH .on').forEach(b => b.classList.remove('on')); const kn = $('hKnob'); if (kn) kn.style.transform = '';
+}
+addEventListener('pointerup', (e) => mouseSync(e, false)); addEventListener('pointercancel', (e) => mouseSync(e, false));
+addEventListener('blur', () => releaseAll()); document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
 // 畫布上的手指或滑鼠：地圖上「點一下」下命令、「拖曳」移動地圖、兩指縮放；直升機上滑鼠指哪裡打哪裡、手指滑動移動準星
 const PTRS = new Map(); let pinch0 = 0, h0 = 300;
 canvas.addEventListener('pointerdown', (e) => {
   if (ROLE !== 'teacher') return; try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   PTRS.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false, btn: e.button, type: e.pointerType });
   if (PTRS.size === 2) { const [a, b] = [...PTRS.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); h0 = MAP.h; }
-  if (TS.view === 'heli' && e.pointerType === 'mouse') { MOUSE.x = e.clientX; MOUSE.y = e.clientY; if (e.button === 0) MOUSE.l = true; if (e.button === 2) { MOUSE.r = true; TQ.rocket = true; } }
+  if (TS.view === 'heli' && e.pointerType === 'mouse') { MOUSE.x = e.clientX; MOUSE.y = e.clientY; mouseSync(e, true); }
   if (TS.view === 'map' && e.pointerType === 'mouse') { MOUSE.x = e.clientX; MOUSE.y = e.clientY; }
 });
 canvas.addEventListener('pointermove', (e) => {
   if (ROLE !== 'teacher') return;
   const p = PTRS.get(e.pointerId);
+  if (e.pointerType === 'mouse') mouseSync(e, TS.view === 'heli' && PTRS.has(e.pointerId));
   if (!p) { if (e.pointerType === 'mouse') { MOUSE.x = e.clientX; MOUSE.y = e.clientY; } return; }
   const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; if (Math.hypot(p.x - p.sx, p.y - p.sy) > 9) p.moved = true;
   if (TS.view === 'map') {
@@ -5073,7 +5090,7 @@ canvas.addEventListener('pointermove', (e) => {
 });
 const ptrUp = (e) => {
   if (ROLE !== 'teacher') return; const p = PTRS.get(e.pointerId); PTRS.delete(e.pointerId);
-  if (e.pointerType === 'mouse') { if (e.button === 0) MOUSE.l = false; if (e.button === 2) MOUSE.r = false; }
+  if (e.pointerType === 'mouse') mouseSync(e, false);
   if (p && TS.view === 'map' && !p.moved && p.btn === 0 && PTRS.size === 0 && e.type === 'pointerup') mapClick(e.clientX, e.clientY);
 };
 canvas.addEventListener('pointerup', ptrUp); canvas.addEventListener('pointercancel', ptrUp);
@@ -5087,7 +5104,7 @@ canvas.addEventListener('dblclick', () => { if (TS.view === 'map') { MAP.off.set
   stick.addEventListener('pointermove', (e) => { if (e.pointerId === sid) move(e); });
   const up = (e) => { if (e.pointerId !== sid) return; sid = null; HIN.yaw = HIN.climb = 0; knob.style.transform = ''; };
   stick.addEventListener('pointerup', up); stick.addEventListener('pointercancel', up);
-  const holdBtn = (id, k) => { const b = $(id); b.addEventListener('pointerdown', (e) => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (_) {} HIN[k] = true; if (k in TQ) TQ[k] = true; b.classList.add('on'); }); const off = () => { HIN[k] = false; b.classList.remove('on'); }; b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off); };
+  const holdBtn = (id, k) => { const b = $(id); let pid = null; b.addEventListener('pointerdown', (e) => { e.preventDefault(); pid = e.pointerId; try { b.setPointerCapture(e.pointerId); } catch (_) {} HIN[k] = true; if (k in TQ) TQ[k] = true; b.classList.add('on'); }); const off = () => { pid = null; HIN[k] = false; b.classList.remove('on'); }; b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off); for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => { if (e.pointerId === pid) off(); }); };
   holdBtn('hbGun', 'gun'); holdBtn('hbRk', 'rocket'); holdBtn('hbWing', 'wing'); holdBtn('hbFlare', 'flare'); holdBtn('hbBoost', 'boost');
 }
 const RC = new THREE.Raycaster(); const PL = new THREE.Plane(V(0, 1, 0), -0.3);

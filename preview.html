@@ -2680,7 +2680,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.8.2（修正直升機機砲有時停不下來；下載的檔案直接打開也能顯示 QR Code 和材質；車輛標籤不再疊在一起；路線加長 50%，一趟約 3 分鐘；修正進隧道後看不到車：鏡頭在隧道、防護網、偽裝網底下自動降低，指揮地圖拿掉隧道頂；拿掉車道指示；提示一次一則、不擋畫面；卡車速度再提高 20%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.9.0（遊戲大廳：學生掃一次 QR Code，老師打開哪款就進哪款；修正直升機機砲有時停不下來；下載的檔案直接打開也能顯示 QR Code 和材質；車輛標籤不再疊在一起；路線加長 50%，一趟約 3 分鐘；修正進隧道後看不到車：鏡頭在隧道、防護網、偽裝網底下自動降低，指揮地圖拿掉隧道頂；拿掉車道指示；提示一次一則、不擋畫面；卡車速度再提高 20%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 // 直接在電腦上打開下載的檔案時（網址是 file://），旁邊沒有圖檔、模型和音效資料夾，改從 GitHub 網站載入
 const ASSET = location.protocol === 'file:' ? 'https://op06dhans-eng.github.io/supply-convoy/' : '';
@@ -2756,6 +2756,7 @@ function makeLocalNet() {
     on(path, cb) { const s = { path, kind: 'value', cb }; subs.add(s); queueMicrotask(() => cb(clone(getAt(path)))); return () => subs.delete(s); },
     onChild(path, h) { const s = { path, kind: 'child', ...h }; subs.add(s); queueMicrotask(() => { const cur = getAt(path); if (cur && typeof cur === 'object' && h.added) for (const k in cur) h.added(k, clone(cur[k])); }); return () => subs.delete(s); },
     onDisconnectRemove(path) { offs.push(path); },
+    onRaw() { return () => {}; },
   };
   addEventListener('pagehide', () => { for (const p of offs) try { ch.postMessage({ t: 'set', path: p, v: null }); } catch (_) {} });
   ch.postMessage({ sync: 'req', id: NET.id });
@@ -2778,6 +2779,7 @@ async function makeFirebaseNet(cfg) {
     on: (p, cb) => D.onValue(Rf(p), (s) => cb(s.val())),
     onChild(p, h) { const u = []; if (h.added) u.push(D.onChildAdded(Rf(p), (s) => h.added(s.key, s.val()))); if (h.changed) u.push(D.onChildChanged(Rf(p), (s) => h.changed(s.key, s.val()))); if (h.removed) u.push(D.onChildRemoved(Rf(p), (s) => h.removed(s.key))); return () => u.forEach(f => f()); },
     onDisconnectRemove: (p) => D.onDisconnect(Rf(p)).remove(),
+    onRaw: (p, cb) => D.onValue(D.ref(db, p), (s) => cb(s.val())), // 讀另一款遊戲的資料（遊戲大廳用）
   };
   D.onValue(D.ref(db, '.info/serverTimeOffset'), (s) => { offset = s.val() || 0; });
   D.onValue(D.ref(db, '.info/connected'), (s) => { NET.online = !!s.val(); });
@@ -4322,7 +4324,20 @@ document.querySelectorAll('.sndAny').forEach(b => b.onclick = () => { SFX.toggle
 document.querySelectorAll('.invBtn').forEach(b => b.onclick = () => { INVY = !INVY; store.set('invy', INVY); renderSw(); });
 $('qBtn').onclick = () => { QUALITY = QUALITY === 'high' ? 'low' : 'high'; store.set('q', QUALITY); applyQuality(); $('qBtn').textContent = `畫質：${QUALITY === 'high' ? '高畫質' : '省電'}`; };
 
+// 遊戲大廳：老師後來打開了另一款遊戲，學生手機自動跳過去（12 小時內、比這款更晚打開的才算）
+function followLobby() {
+  const L = { mine: null, other: null, n: 0 }; let gone = false;
+  const check = () => {
+    if (gone || L.n < 2 || !L.other || !L.other.at || L.other.game !== 'radar') return; const now = NET.now();
+    if (now - L.other.at > 12 * 3600 * 1000 || (L.mine && L.mine.at >= L.other.at)) return;
+    gone = true; const url = location.origin + location.pathname.replace(/[^/]*\/[^/]*$/, '') + 'radar-defense/play.html';
+    document.body.insertAdjacentHTML('beforeend', '<div style="position:fixed;inset:0;z-index:99;background:rgba(10,12,14,0.94);display:grid;place-items:center;color:#fff;font:900 26px sans-serif;text-align:center;padding:20px">老師換到另一款遊戲了<br>正在帶你過去…</div>');
+    setTimeout(() => location.replace(url), 900);
+  };
+  let a = 0, b = 0; NET.on('lobby', (v) => { L.mine = v; if (!a) { a = 1; L.n++; } check(); }); NET.onRaw('rd/lobby', (v) => { L.other = v; if (!b) { b = 1; L.n++; } check(); });
+}
 function studentInit() {
+  if (!NET.local && location.protocol !== 'file:') followLobby();
   ROLE = 'student'; show('scrJoin'); renderPick(); renderSw();
   $('joinMsg').textContent = NET.local ? '練習連線模式：老師畫面要開在同一台電腦的另一個分頁。' : '選好隊伍後，等老師開始。';
   NET.on('players', (p) => {
@@ -4763,7 +4778,9 @@ const HTMLC = {};
 const LIMIT_SEC = 420; // 一輪最長 7 分鐘（路線加長後，正常約 3 分多鐘）
 const CFG = { diff: 1, auto: true, aiHeli: true, ...store.get('cfg', {}) };
 const PUBLIC_PLAY = 'https://op06dhans-eng.github.io/supply-convoy/play.html';
-function studentURL() { return location.protocol === 'file:' ? PUBLIC_PLAY : location.origin + location.pathname.replace(/[^/]*$/, '') + 'play.html'; }
+// QR Code 指向遊戲大廳 go.html：學生掃一次，老師打開哪款遊戲，手機就自動進哪款
+function studentURL() { return location.protocol === 'file:' ? PUBLIC_PLAY.replace('play.html', 'go.html') : location.origin + location.pathname.replace(/[^/]*$/, '') + 'go.html'; }
+function claimLobby() { NET.set('lobby', { game: 'convoy', at: NET.now() }); }
 function drawQR(cv, text) { try { const q = qrcode(0, 'M'); q.addData(text); q.make(); const n = q.getModuleCount(); const g = cv.getContext('2d'); const s = cv.width; const m = s / (n + 2); g.fillStyle = '#fff'; g.fillRect(0, 0, s, s); g.fillStyle = '#000'; for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (q.isDark(y, x)) g.fillRect(Math.floor((x + 1) * m), Math.floor((y + 1) * m), Math.ceil(m), Math.ceil(m)); } catch (e) { console.warn(e); } }
 
 function teacherInit() {
@@ -4775,6 +4792,7 @@ function teacherInit() {
   let first = true;
   const unsub = NET.on('meta', (m) => {
     if (!first) return; first = false; setTimeout(() => unsub && unsub(), 0);
+    setTimeout(claimLobby, 1200); // 老師打開這款遊戲：大廳裡的學生手機自動跳過來
     if (m && m.sid) { TS.sid = m.sid; TS.round = m.round || 0; TS.phase = 'lobby'; NET.set('meta', { sid: TS.sid, phase: 'lobby', round: TS.round }); }
     else newSession();
   });
@@ -4848,6 +4866,7 @@ function makeCrew(teams) {
   TS.pairs = pairs; return crew;
 }
 function tStartRound(which = 'all') {
+  claimLobby();
   if (busy()) return;
   if (TS.rehearsal) stopRehearsal(false);
   TS.tr = TS.tr || [0, 0, 0, 0]; const n = tCounts();
@@ -5313,7 +5332,7 @@ else if (ROLE === 'student') studentInit();
 else { show('scrRole'); $('roleT').onclick = () => teacherInit(); $('roleS').onclick = () => studentInit(); document.querySelectorAll('.backrole').forEach(b => { b.hidden = false; b.onclick = () => location.reload(); }); }
 RENDER_OK = true;
 requestAnimationFrame(frame);
-window.__sr = { laneClear, laneX, laneOf, startFollow, OBST, newDrone, showResult, get RES() { return RES; }, set RES(x) { RES = x; }, W, SIM, TS, SS, ME, NET, SFX, LEN, FINISH, at, spawnDrone, orderArtillery, heliStart, takeHeli, leaveHeli, tStartRound, tEndRound, startRehearsal, stopRehearsal, setTeacherView, simTick, renderWorld, KEY, MOUSE, MAP, get CREW() { return CREW; }, get META() { return META; }, get TPLAYERS() { return TPLAYERS; }, camera, scene, renderer,
+window.__sr = { snapshot, laneClear, laneX, laneOf, startFollow, OBST, newDrone, showResult, get RES() { return RES; }, set RES(x) { RES = x; }, W, SIM, TS, SS, ME, NET, SFX, LEN, FINISH, at, spawnDrone, orderArtillery, heliStart, takeHeli, leaveHeli, tStartRound, tEndRound, startRehearsal, stopRehearsal, setTeacherView, simTick, renderWorld, KEY, MOUSE, MAP, get CREW() { return CREW; }, get META() { return META; }, get TPLAYERS() { return TPLAYERS; }, camera, scene, renderer,
   step(sec, d = 0.033) { if (!this.vt) { this.vt = NET.now(); NET.now = () => this.vt; } const n = Math.round(sec / d); for (let i = 0; i < n; i++) { this.vt += d * 1000; if (ROLE === 'teacher') teacherFrame(d, this.vt); else if (myVeh()) studentFrame(d, this.vt); } } };
 // 自動測試用：從鏡頭看某台車，有沒有在畫面內、有沒有被東西擋住
 {

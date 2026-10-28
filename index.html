@@ -182,6 +182,18 @@ table.pairs th { color: var(--muted); }
 .qrbig b { font-size: 32px; }
 .load { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; font-weight: 900; background: var(--bg); z-index: 40; }
 /* 提示框：橫放時放在畫面下方中間，不擋準星；直放時畫面夠高，放在上方 */
+.pref { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: clamp(16px, 2.8vmin, 20px); }
+.pref button { min-height: 44px; padding: 4px 14px; border-radius: 10px; border: 2px solid var(--line); background: rgba(0,0,0,0.3); color: #fff; font: inherit; font-weight: 900; }
+.pref button.on { border-color: var(--hot); background: rgba(150,90,30,0.8); }
+/* 駕駛、射手互傳訊息 */
+.pings { position: absolute; display: flex; gap: 6px; pointer-events: auto; }
+.pings button { min-width: 64px; min-height: 42px; padding: 3px 8px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.55); background: rgba(20,40,70,0.7); color: #fff; font-weight: 900; font-size: 14px; line-height: 1.15; touch-action: none; font-family: var(--sans); }
+.pings button:active, .pings button.on { background: rgba(60,120,200,0.9); }
+#dPings { left: max(14px, env(safe-area-inset-left)); bottom: calc(max(18px, env(safe-area-inset-bottom)) + min(24vmin, 110px) + 14px); }
+#gPings { left: max(14px, env(safe-area-inset-left)); bottom: max(18px, env(safe-area-inset-bottom)); }
+@media (orientation: portrait) { #gPings { bottom: calc(max(18px, env(safe-area-inset-bottom)) + 64px); flex-wrap: wrap; width: 150px; } }
+.ping { position: absolute; left: 50%; top: calc(max(10px, env(safe-area-inset-top)) + 70px); transform: translateX(-50%); background: rgba(30,90,200,0.92); border: 3px solid #bfe0ff; border-radius: 14px; padding: 6px 18px; font-size: calc(var(--fs) * 1.05); font-weight: 900; white-space: nowrap; pointer-events: none; }
+@media (orientation: portrait) { .ping { top: calc(max(10px, env(safe-area-inset-top)) + 150px); } }
 .hud .tip { position: absolute; left: 50%; transform: translateX(-50%); width: max-content; background: rgba(20,70,140,0.88); padding: 5px 12px; border-radius: 10px; font-size: calc(var(--fs) * 0.58); line-height: 1.4; text-align: center; opacity: 0.88; pointer-events: none; }
 #gTip { bottom: calc(max(18px, env(safe-area-inset-bottom)) + 46px); max-width: min(46vw, 480px); }
 #dTip { left: auto; right: max(12px, env(safe-area-inset-right)); transform: none; top: calc(max(10px, env(safe-area-inset-top)) + 84px); max-width: min(32vw, 300px); text-align: left; }
@@ -243,6 +255,8 @@ table.pairs th { color: var(--muted); }
     <button class="ctl lane" id="bL">◀</button><button class="ctl lane" id="bR">▶</button>
     <button class="ctl pedal" id="bBrake">煞車</button><button class="ctl pedal" id="bGas">加速</button>
     <button class="ctl" id="bJam">干擾器</button>
+    <div class="pings" id="dPings"><button data-k="D">幫我打<br>無人機</button><button data-k="H">打直升機！</button></div>
+    <div class="ping" id="dPing" hidden></div>
   </div>
 
   <!-- 學生：射手 -->
@@ -261,6 +275,8 @@ table.pairs th { color: var(--muted); }
     <div class="heat"><span id="gHeatT">機槍溫度</span><i><u id="gHeat"></u></i></div>
     <button class="ctl" id="bMsl">防空飛彈<br><span style="white-space:nowrap">剩 <span id="gMslN">4</span> 枚</span></button>
     <button class="ctl" id="bFire">開火</button>
+    <div class="pings" id="gPings"><button data-k="L">往左閃</button><button data-k="R">往右閃</button><button data-k="B">煞車</button><button data-k="G">加速</button></div>
+    <div class="ping" id="gPing" hidden></div>
   </div>
 
   <!-- 老師：地圖 -->
@@ -293,7 +309,8 @@ table.pairs th { color: var(--muted); }
   <section class="scr" id="scrJoin" hidden>
     <div class="card">
       <h1>補給公路</h1>
-      <p>前線需要補給。你們兩人一車：一人開車、一人操作車頂的防空機槍，要躲過無人機、砲擊和攻擊直升機，把補給送到終點。誰開車、誰開槍由電腦抽籤，第二輪會互換。</p>
+      <p>前線需要補給。你們兩人一車：一人開車、一人操作車頂的防空機槍，要躲過無人機、砲擊和攻擊直升機，把補給送到終點。誰開車、誰開槍由電腦安排（會盡量照你選的意願），第二輪會互換。</p>
+      <div class="pref"><span>我想當</span><button data-p="d">駕駛</button><button data-p="g">射手</button><button data-p="" class="on">都可以</button></div>
       <h2>選一隊加入（每隊最多 16 人）</h2>
       <div class="pick" id="pick"></div>
       <p class="muted" id="joinMsg"></p>
@@ -311,6 +328,7 @@ table.pairs th { color: var(--muted); }
       <h1 id="wTitle">等待老師開始</h1>
       <p id="wText"></p>
       <div class="livebox" id="wLive" hidden></div>
+      <div class="pref"><span>我想當</span><button data-p="d">駕駛</button><button data-p="g">射手</button><button data-p="" class="on">都可以</button></div>
       <div class="row2" id="pxRow"><button class="btn go pxD" id="pxDrive" style="--c:#7fe08a">單人練習：當駕駛</button><button class="btn go pxG" id="pxGun" style="--c:#ffb15a">單人練習：當射手</button></div>
       <button class="btn swRow sndAny"></button>
       <button class="btn swRow invBtn"></button>
@@ -341,6 +359,8 @@ table.pairs th { color: var(--muted); }
     <div class="row2"><button class="btn" id="tSnd">音效：開</button><button class="btn go" id="tRehearse">演練：電腦車隊</button></div>
     <div class="row2"><button class="btn" id="tDiff">難度：普通</button><button class="btn" id="tAuto">電腦自動攻擊：開</button></div>
     <button class="btn" id="tAiHeli">電腦直升機：開</button>
+    <button class="btn" id="tCond">本輪狀況：標準</button>
+    <div class="row2"><button class="btn" id="tCol">車子互相碰撞：開</button><button class="btn" id="tPing">駕駛射手互傳訊息：開</button></div>
     <div id="tPairs"></div>
     <button class="btn go" id="tRank">公布總排名</button>
     <button class="btn warn" id="tReset">開新場次（清空所有人）</button>
@@ -2680,7 +2700,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.9.0（遊戲大廳：學生掃一次 QR Code，老師打開哪款就進哪款；修正直升機機砲有時停不下來；下載的檔案直接打開也能顯示 QR Code 和材質；車輛標籤不再疊在一起；路線加長 50%，一趟約 3 分鐘；修正進隧道後看不到車：鏡頭在隧道、防護網、偽裝網底下自動降低，指揮地圖拿掉隧道頂；拿掉車道指示；提示一次一則、不擋畫面；卡車速度再提高 20%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.10.0（駕駛射手互傳訊息、車子互相碰撞、選角色意願、每輪狀況、成本對照；遊戲大廳：學生掃一次 QR Code，老師打開哪款就進哪款；修正直升機機砲有時停不下來；下載的檔案直接打開也能顯示 QR Code 和材質；車輛標籤不再疊在一起；路線加長 50%，一趟約 3 分鐘；修正進隧道後看不到車：鏡頭在隧道、防護網、偽裝網底下自動降低，指揮地圖拿掉隧道頂；拿掉車道指示；提示一次一則、不擋畫面；卡車速度再提高 20%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 // 直接在電腦上打開下載的檔案時（網址是 file://），旁邊沒有圖檔、模型和音效資料夾，改從 GitHub 網站載入
 const ASSET = location.protocol === 'file:' ? 'https://op06dhans-eng.github.io/supply-convoy/' : '';
@@ -3130,12 +3150,12 @@ function mineMesh(i) {
   scene.add(g); minePool[i] = g; return g;
 }
 function mineSeed(sid, round) { let h = 2166136261; for (const ch of String(sid) + '#' + round) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
-function placeMines(seed) {
+function placeMines(seed, dense) {
   const rnd = prng(seed); OBST.mines = []; let d = 300 + rnd() * 80; let id = 1;
   while (d < FINISH - 100) {
     if (!OBST_BAD(d) && !OBST.wrecks.some(w => Math.abs(w.d - d) < 22)) {
       const lat = clamp(LX(Math.floor(rnd() * 8)) + (rnd() - 0.5) * 1.6, LX(0) - 0.5, LX(7) + 0.5); const p = roadPos(d, lat, 0, V());
-      OBST.mines.push({ id: id++, d, lat, p, alive: true }); d += 120 + rnd() * 90;
+      OBST.mines.push({ id: id++, d, lat, p, alive: true }); d += (120 + rnd() * 90) / (dense ? 2.1 : 1);
     } else d += 20; // 這裡不能放（橋、隧道、殘骸旁邊）：往前挪一點再試
   }
   OBST.mines.forEach((m, i) => { const g = mineMesh(i); g.position.copy(m.p); const a = at(m.d); g.rotation.y = Math.atan2(a.tx, a.tz); g.visible = true; m.mesh = g; });
@@ -3262,10 +3282,11 @@ function setZone(m, d0, d1, l0, l1) {
 }
 
 /* ---------- 光線（依視角調整亮度） ---------- */
+let FOGGY = false; // 本輪狀況：濃霧
 function setLook(mode) {
   // mode：drive、gun、map、heli
   const map = mode === 'map';
-  scene.fog.density = map ? 0.0009 : mode === 'heli' ? 0.0028 : mode === 'gun' ? 0.0042 : 0.0058;
+  scene.fog.density = (map ? 0.0009 : mode === 'heli' ? 0.0028 : mode === 'gun' ? 0.0042 : 0.0058) * (!map && FOGGY ? 2.3 : 1);
   renderer.toneMappingExposure = map ? 1.5 : 1.15;
   hemi.intensity = map ? 1.5 : 0.85;
 }
@@ -3680,6 +3701,12 @@ function driveStep(v, dt, inp, others) {
     const steer = (inp.r ? 1 : 0) - (inp.l ? 1 : 0); const want = steer * LAT_SPD;
     const acc = steer ? 22 : 40; v.vlat = (v.vlat || 0) + clamp(want - (v.vlat || 0), -acc * dt, acc * dt);
     const lo = laneX(0) - 0.8, hi = laneX(NL - 1) + 0.8; v.x = clamp(v.x + v.vlat * dt, lo, hi); if (v.x === lo || v.x === hi) v.vlat = 0;
+    if (COLLIDE && others) for (const o of others) { // 碰到別台車：從旁邊靠過去會被擋開，從後面頂上去會停住
+      if (!o || o === v) continue; const od = o.rd !== undefined ? o.rd : o.d, ox = o.rx !== undefined ? o.rx : o.x;
+      const dd = od - v.d, dx = ox - v.x; if (Math.abs(dd) >= 6.4 || Math.abs(dx) >= 2.6) continue;
+      if (Math.abs(dx) > 1.1) { v.x = ox - (dx >= 0 ? 1 : -1) * 2.6; v.vlat = 0; }
+      else if (dd > 0) { v.d = Math.min(v.d, od - 6.4); v.v = Math.min(v.v, o.v || 0); }
+    }
     v.lane = laneOf(v.x); v.laneT = 1;
   } else v.vlat = 0;
   // 電腦開車（或抵達後停車）：換車道約 0.8 秒（有慣性）
@@ -3718,6 +3745,16 @@ function mineTick() {
     }
   }
 }
+// 每輪狀況（老師面板選）：fiber 光纖無人機大量出現、mines 地雷加倍、swarm 無人機飽和攻擊、fog 濃霧
+const CONDS = [
+  { k: 'std', name: '標準', desc: '一般狀況。', q: '' },
+  { k: 'fiber', name: '光纖無人機大量出現', desc: '這一輪幾乎都是光纖無人機：干擾器對它們沒有用，只能靠射手打和駕駛閃。', q: '干擾器失效的時候，車隊還能靠什麼保護自己？真實戰場上，光纖無人機有什麼弱點？' },
+  { k: 'mines', name: '地雷加倍', desc: '敵人在路上多埋了一倍的地雷，駕駛要更專心看路。', q: '路上埋了地雷，車隊出發前應該先做什麼？為什麼補給路線特別容易被埋雷？' },
+  { k: 'swarm', name: '無人機飽和攻擊', desc: '無人機來襲的頻率提高一半，射手會忙不過來。', q: '一次來的無人機比射手能打的還多時，該怎麼辦？「飽和攻擊」為什麼有效？' },
+  { k: 'fog', name: '濃霧', desc: '能見度很差，要靠警告圈和聲音提早發現攻擊。', q: '看不見敵人的時候，車隊靠什麼知道攻擊要來了？無人機在霧裡為什麼還找得到你？' },
+];
+const condOf = (k) => CONDS.find(c => c.k === k) || CONDS[0];
+let COLLIDE = true; // 學生自己開的車：不能開進別台車裡（擋住、不扣血）
 const LAT_SPD = 6; // 按住方向鍵時橫向移動的速度（公尺／秒），一條車道寬 3.8 公尺
 function parkD(k) { return FINISH + 45 + Math.floor(k / NL) * 13; }
 function parkLane(k) { return k % NL; }
@@ -3857,7 +3894,7 @@ function renderHeli(dt, now, opt) {
 const freshCnt = () => ({ mine: 0, crash: 0, fpv: 0, fiber: 0, shot: 0, jam: 0, net: 0, dodge: 0, hit: 0, shells: 0, shellHit: 0, mslH: 0, mslHHit: 0, decoy: 0, mslD: 0, mslDHit: 0, rockets: 0 });
 // 精彩片段：記下誰在什麼時候做了什麼（回合結束重播用）
 function hl(vi, score, what) { if (vi >= 0) SIM.hl.push({ t: NET.now(), vi, score, what }); }
-const SIM = { hl: [], cnt: freshCnt(), mslGap: 0, diff: 1, auto: true, nextArt: 6, stock: { fpv: 12, fiber: 4, art: 6 }, stockT: { fpv: 0, fiber: 0, art: 0 }, arrived: 0, impWait: new Map(), impRep: new Map(), lastSnap: 0, rocketQ: [], heliIn: null, wingCmdT: 0 };
+const SIM = { cond: 'std', hl: [], cnt: freshCnt(), mslGap: 0, diff: 1, auto: true, nextArt: 6, stock: { fpv: 12, fiber: 4, art: 6 }, stockT: { fpv: 0, fiber: 0, art: 0 }, arrived: 0, impWait: new Map(), impRep: new Map(), lastSnap: 0, rocketQ: [], heliIn: null, wingCmdT: 0 };
 const STOCK_MAX = { fpv: 12, fiber: 4, art: 6 }, STOCK_SEC = { fpv: 5, fiber: 20, art: 25 };
 function simReset() {
   for (const dr of [...W.drones.values()]) { dr.mesh.visible = false; } W.drones.clear(); W.zones.clear();
@@ -3959,8 +3996,8 @@ function director(dt, now) {
     const seg = segAt(v.d); const ahead = segAt(v.d + 80);
     const k = Math.max(seg.k, 0) ; if (k <= 0 || v.d < 90 || v.d > FINISH - 60 || inTunnel(v.d + 50) || inTunnel(v.d + 90)) { v.nextAtk = 2; continue; }
     if (!SIM.auto) { v.nextAtk = 3; continue; }
-    v.nextAtk = (7 + R() * 7) * k0 / k;
-    const fiber = R() < 0.35;
+    v.nextAtk = (7 + R() * 7) * k0 / k * (SIM.cond === 'swarm' ? 0.6 : 1);
+    const fiber = R() < (SIM.cond === 'fiber' ? 0.9 : 0.35);
     spawnDrone(v, fiber);
     if (k >= 1.2 && R() < 0.3) setTimeout(() => spawnDrone(v, R() < 0.35), 600 + R() * 900); // 前線：兩架同時來
   }
@@ -4244,6 +4281,7 @@ const KNOW = [
   { t: '砲兵沒有消失', x: '英國智庫 RUSI 的報告指出，無人機已經造成俄軍六到七成的裝備損失，但前線軍官強調火砲仍不可少：常見打法是無人機找目標、火砲負責攻擊。（六到七成是裝備損失，不是人員傷亡。）', src: 'RUSI 報告，2025-02-14' },
   { t: '補給線就是戰場', x: '烏克蘭用無人機攻擊俄軍通往克里米亞的補給線：不必打贏正面的戰鬥，只要讓補給送不到，前線就撐不下去。', src: 'RUSI，2026-07-07' },
   { t: '路上的殘骸和地雷', x: '補給車隊最怕的不只是天上的攻擊：被炸毀的車輛會堵住道路，讓車隊減速、擠在一起，變成更好打的目標；在路上埋設地雷也是攔截補給的常見手法。所以車隊行進前通常要先派人清理和偵察路線。', src: '一般原理說明' },
+  { t: '400 美元對 1,900 萬美元', x: '據報導，烏克蘭用一架廠商說不到 400 美元的 FPV 無人機，擊毀了一架俄軍 Mi-28 攻擊直升機；廠商估計這種直升機約 1,900 萬美元。這次擊毀只有部分證實，但便宜的無人機威脅昂貴的武器，已經是這場戰爭的常態。', src: 'TechRadar，2026-07-20（引述烏克蘭廠商與軍方，部分證實）' },
   { t: '熱焰彈怎麼騙飛彈', x: '肩射防空飛彈多半靠追蹤引擎的熱來導引。直升機在飛彈快到時放出燃燒溫度很高的熱焰彈，飛彈就可能轉去追熱焰彈。放太早，熱焰彈燒完了飛彈還沒到，就沒有用。', src: '一般原理說明' },
 ];
 const QUESTIONS = [
@@ -4268,6 +4306,13 @@ function rankHtml(r) {
   return h;
 }
 
+// 成本對照：用公開報導的數字比較「量級」（遊戲武器是虛構的）
+function costHtml(c) {
+  if (!c) return ''; const dr = (c.fpv || 0) + (c.fiber || 0); if (!dr) return '';
+  let h = `<h2>花了多少錢？</h2><p>攻擊方這一輪派出 <b>${dr}</b> 架無人機。烏克蘭無人機廠商說，他們的 FPV 自殺無人機一架不到 400 美元；照這個價格，${dr} 架加起來還不到 <b>${(dr * 400).toLocaleString()}</b> 美元。</p>`;
+  h += `<p>遊戲裡的攻擊直升機外型參考 Mi-28。同一篇報導說，一架不到 400 美元的 FPV 擊毀了一架 Mi-28；廠商估計這種直升機約 1,900 萬美元，其他來源約 1,500 萬美元（這次擊毀只有部分證實）。${c.mslHHit ? `這一輪直升機被防空飛彈命中 <b>${c.mslHHit}</b> 次。` : ''}</p>`;
+  return h + `<p class="muted">出處：TechRadar，2026-07-20（引述烏克蘭廠商 SkyFall 與烏軍無人系統部隊）。遊戲武器是虛構的，數字只用來比較量級。</p>`;
+}
 // 全班統計：這一輪無人機、砲擊、飛彈的去向（方便接著講電子戰、防空）
 function cntHtml(c) {
   if (!c) return '';
@@ -4310,7 +4355,7 @@ function joinTeam(t, silent) {
   const last = meStore.get('me', null);
   for (const p of ['players/', 'req/', 'ans/']) NET.onDisconnectRemove(p + ME.pid);
   NET.remove('ans/' + ME.pid);
-  NET.set('req/' + ME.pid, { team: t, at: NET.now(), no: last && last.sid === META.sid && last.team === t ? last.no : 0 });
+  NET.set('req/' + ME.pid, { team: t, at: NET.now(), no: last && last.sid === META.sid && last.team === t ? last.no : 0 }); sendPref();
   if (silent) return;
   $('joinMsg').textContent = '等待老師的電腦確認…';
   clearTimeout(ME.joinTO); ME.joinTO = setTimeout(() => { if (ME.team < 0) { ME.waitingJoin = false; renderPick(); $('joinMsg').textContent = '老師的畫面沒有回應。請確認老師已經打開遊戲，再選一次。'; } }, 8000);
@@ -4321,6 +4366,12 @@ function renderSw() {
   document.querySelectorAll('.invBtn').forEach(b => { b.innerHTML = swHtml('Y軸反轉（射手）', INVY ? '手指往上拖＝槍口往下' : '手指往上拖＝槍口往上', INVY); b.classList.toggle('on', INVY); });
 }
 document.querySelectorAll('.sndAny').forEach(b => b.onclick = () => { SFX.toggle(); renderSw(); });
+// 角色意願：想當駕駛／射手／都可以（存在自己手機，老師電腦配對時參考）
+let PREF = meStore.get('pref', '');
+function renderPref() { document.querySelectorAll('.pref button').forEach(b => b.classList.toggle('on', b.dataset.p === PREF)); }
+function sendPref() { if (!ME.pid) return; NET.onDisconnectRemove('pref/' + ME.pid); if (PREF) NET.set('pref/' + ME.pid, PREF); else NET.remove('pref/' + ME.pid); }
+document.querySelectorAll('.pref').forEach(row => row.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; PREF = b.dataset.p; meStore.set('pref', PREF); renderPref(); sendPref(); });
+renderPref();
 document.querySelectorAll('.invBtn').forEach(b => b.onclick = () => { INVY = !INVY; store.set('invy', INVY); renderSw(); });
 $('qBtn').onclick = () => { QUALITY = QUALITY === 'high' ? 'low' : 'high'; store.set('q', QUALITY); applyQuality(); $('qBtn').textContent = `畫質：${QUALITY === 'high' ? '高畫質' : '省電'}`; };
 
@@ -4394,7 +4445,8 @@ function renderLive() {
 function prepRun() {
   SS.round = META.round; SS.mode = 'prep'; SS.gotSnap = false; SS.whistled.clear(); SS.hitCnt.clear(); SS.lastArrMsg = false; SS.over = false; SS.heat = 0; SS.lockT = 0;
   W.drones.forEach(d => d.mesh.visible = false); W.drones.clear(); W.zones.clear(); W.seen.clear(); for (const m of W.missiles.values()) scene.remove(m.mesh); W.missiles.clear(); W.rockets.forEach(r => r.mesh.visible = false); W.rockets = []; TR.clear();
-  placeMines(mineSeed(META.sid, META.round)); initVehicles(CREW);
+  SIM.cond = META.cond || 'std'; FOGGY = SIM.cond === 'fog'; COLLIDE = META.col !== 0; placeMines(mineSeed(META.sid, META.round), SIM.cond === 'mines'); initVehicles(CREW);
+  setupPing();
   const v = myVeh(); SS.aimY = v.d !== undefined ? headingAt(v.d) : 0; SS.aimP = 0.15;
   if (SS.wUnsub) SS.wUnsub(); SS.wUnsub = NET.on('w', (str) => { if (!str || SS.mode === 'idle') return; let s; try { s = JSON.parse(str); } catch (_) { return; } onSnap(s); });
   if (SS.vdUnsub) { SS.vdUnsub(); SS.vdUnsub = null; }
@@ -4413,7 +4465,7 @@ function countScreen() {
   const c = CREW[ME.vi]; const t = TEAMS[c.t]; const partner = ME.role === 'drive' ? c.gc : c.dc;
   $('cTeam').innerHTML = `<b style="color:${t.c}">${t.name} ${c.n} 號車</b>　搭檔：${partner || '電腦'}`;
   $('cRole').innerHTML = ME.role === 'drive' ? '你是<span style="color:#7fe08a">駕駛</span>' : '你是<span style="color:#ffb15a">射手</span>';
-  $('cHow').innerHTML = (ME.role === 'drive' ? '按住 ◀ ▶ 往左右移動，閃無人機和砲擊（放開就停在原位），右邊踩油門、煞車。黃圈變紅圈、紅圈縮到最小的時候閃最有效。干擾器能讓無線電無人機失控。' : '手指在畫面上拖曳轉動機槍，按住「開火」射擊，槍管太熱要停一下。把直升機放在準星中間 2.5 秒會鎖定，再按「防空飛彈」發射。') + (innerHeight > innerWidth ? '<br><b>把手機橫過來玩，畫面比較大。</b>' : '');
+  const cd = condOf(META.cond); $('cHow').innerHTML = (cd.k !== 'std' ? `<b style="color:#ffb15a">本輪狀況：${cd.name}</b><br>${cd.desc}<br>` : '') + (ME.role === 'drive' ? '按住 ◀ ▶ 往左右移動，閃無人機和砲擊（放開就停在原位），右邊踩油門、煞車。黃圈變紅圈、紅圈縮到最小的時候閃最有效。干擾器能讓無線電無人機失控。' : '手指在畫面上拖曳轉動機槍，按住「開火」射擊，槍管太熱要停一下。把直升機放在準星中間 2.5 秒會鎖定，再按「防空飛彈」發射。') + (innerHeight > innerWidth ? '<br><b>把手機橫過來玩，畫面比較大。</b>' : '');
   setMode(ME.role === 'drive' ? 'drive' : 'gun'); show('scrCount'); $('hudD').hidden = true; $('hudG').hidden = true;
   tickCount();
 }
@@ -4428,7 +4480,8 @@ function startRun() {
 function stopRun() {
   if (SS.mode === 'idle') return;
   SS.mode = 'idle'; if (SS.wUnsub) { SS.wUnsub(); SS.wUnsub = null; } if (SS.vdUnsub) { SS.vdUnsub(); SS.vdUnsub = null; }
-  $('hudD').hidden = true; $('hudG').hidden = true; SS.fireHeld = false; SS.inp.l = SS.inp.r = false; TIPQ.q = [];
+  $('hudD').hidden = true; $('hudG').hidden = true; SS.fireHeld = false; SS.inp.l = SS.inp.r = false; TIPQ.q = []; FOGGY = false;
+  if (SS.pingUn) { SS.pingUn(); SS.pingUn = null; }
   if (ME.vi >= 0) { NET.remove('vd/' + ME.vi); NET.remove('vg/' + ME.vi); }
 }
 
@@ -4509,6 +4562,29 @@ window.onGameEvent = (e) => {
   if (type === 'k' && vi === ME.vi) { const t = { w: '擊落一架僚機！', h: '飛彈命中直升機！', hm: '機槍打傷了直升機！', md: '飛彈被熱焰彈騙走了', dm: '飛彈擊落無人機！' }[k]; if (t) { flash(k === 'md' ? (ME.role === 'drive' ? 'dWarn' : 'gWarn') : g, t, 2.2); if (k !== 'md') SFX.good(); } }
   if (type === 'j' && vi === ME.vi && ME.role === 'drive') { flash(k ? 'dGood' : 'dWarn', k ? `干擾成功：${k} 架失去控制` : '附近沒有無線電無人機（光纖無人機不怕干擾）', 2.2); }
 };
+
+/* ---------- 駕駛和射手互傳訊息 ---------- */
+const PING_TXT = { L: '往左閃！', R: '往右閃！', B: '煞車！', G: '快加速！', D: '幫我打無人機！', H: '打直升機！' };
+const PING_ICON = { L: '◀◀ ', R: '', B: '■ ', G: '▲ ', D: '', H: '' };
+function setupPing() {
+  if (SS.pingUn) { SS.pingUn(); SS.pingUn = null; }
+  const c = CREW[ME.vi]; const partner = c && (ME.role === 'drive' ? c.g : c.d);
+  const on = !!partner && META.ping !== 0 && !SS.practice;
+  $('dPings').hidden = !on || ME.role !== 'drive'; $('gPings').hidden = !on || ME.role !== 'gun';
+  if (!on) return; SS.pingSeen = 0;
+  SS.pingUn = NET.on('ping/' + ME.vi, (p) => {
+    if (!p || p.by === (ME.role === 'drive' ? 'd' : 'g') || p.n === SS.pingSeen || NET.now() - p.t > 5000) return; SS.pingSeen = p.n;
+    const id = ME.role === 'drive' ? 'dPing' : 'gPing'; const who = ME.role === 'drive' ? '射手' : '駕駛';
+    $(id).textContent = `${who}：${PING_ICON[p.k] || ''}${PING_TXT[p.k] || ''}${p.k === 'R' ? ' ▶▶' : ''}`; $(id).hidden = false; FLASH[id] = performance.now() + 2600; SFX.good();
+  });
+}
+for (const host of ['dPings', 'gPings']) $(host).addEventListener('pointerdown', (e) => {
+  const b = e.target.closest('button'); if (!b || !live() || SS.practice) return; e.preventDefault(); e.stopPropagation();
+  const now = performance.now(); if (now - (SS.pingT || 0) < 900) return; SS.pingT = now;
+  NET.set('ping/' + ME.vi, { k: b.dataset.k, by: ME.role === 'drive' ? 'd' : 'g', t: NET.now(), n: Math.floor(R() * 1e9) });
+  b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 300);
+  const id = ME.role === 'drive' ? 'dGood' : 'gGood'; flash(id, `已傳給搭檔：${PING_TXT[b.dataset.k]}`, 1.2);
+});
 
 /* ---------- 每張畫面 ---------- */
 // 手機很卡時，把駕駛計算拆成幾個小步驟，車速才會跟真實時間一致
@@ -4712,8 +4788,9 @@ function showResult0() {
     html += `<div class="stats"><div><b>${mine.arr ? Math.round(mine.cargo) + '%' : '沒送到'}</b><span>送達補給</span></div><div><b>${mine.hits}</b><span>被重擊次數</span></div><div><b>${mine.downs}</b><span>失去動力</span></div><div><b>${mine.dodges}</b><span>閃過無人機</span></div><div><b>${mine.kills}</b><span>擊落無人機</span></div><div><b>${mine.heli}</b><span>飛彈命中直升機</span></div></div>`;
     html += `<p>駕駛：${c.dc || '電腦'}　射手：${c.gc || '電腦'}${mine.jams ? `　干擾器讓 ${mine.jams} 架失控` : ''}${mine.wkills ? `　擊落僚機 ${mine.wkills} 架` : ''}</p>`;
   }
+  if (r.cond && r.cond !== 'std') html += `<h2>本輪狀況：${condOf(r.cond).name}</h2><p>${condOf(r.cond).q}</p>`;
   html += awardsHtml(r.awards);
-  html += cntHtml(r.cnt);
+  html += cntHtml(r.cnt) + costHtml(r.cnt);
   html += knowHtml(r.round);
   html += `<p class="muted">${r.next ? '下一輪駕駛和射手會互換。' : ''}等老師開始下一輪。</p>`;
   $('resCard').innerHTML = html; setMode('menu'); show('scrRes');
@@ -4725,7 +4802,7 @@ const PX = { endT: 0 };
 function startPractice(role) {
   stopRun(); SS.practice = true; SS.mode = 'practice'; SS.pxRole = role;
   const t = ME.team >= 0 ? ME.team : 1; const crew = [1, 2, 3, 4].map(n => ({ t, n, d: '', g: '', dc: '', gc: '' }));
-  simReset(); W.seen.clear(); placeMines((Math.random() * 4e9) >>> 0); initVehicles(crew); W.el = 0; W.t0 = NET.now(); SIM.diff = 1; SIM.auto = true; aiHeliReset();
+  simReset(); W.seen.clear(); SIM.cond = 'std'; FOGGY = false; COLLIDE = true; placeMines((Math.random() * 4e9) >>> 0); initVehicles(crew); $('dPings').hidden = $('gPings').hidden = true; W.el = 0; W.t0 = NET.now(); SIM.diff = 1; SIM.auto = true; aiHeliReset();
   ME.vi = 0; ME.role = role; const v = W.veh[0]; if (role === 'drive') v.localDrive = true; else v.localGun = true;
   Object.assign(SS, { whistled: new Set(), lastArrMsg: false, over: false, heat: 0, lockT: 0, camInit: false, fireHeld: false, jamCool: 0, segName: '' }); SS.hitCnt.clear(); SS.inp.gas = SS.inp.brake = SS.inp.l = SS.inp.r = false;
   SS.aimY = headingAt(v.d); SS.aimP = 0.15; PX.endT = 0;
@@ -4776,7 +4853,8 @@ const TS = { sid: '', phase: 'lobby', round: 0, startAt: 0, endsAt: 0, rehearsal
 let TPLAYERS = {};
 const HTMLC = {};
 const LIMIT_SEC = 420; // 一輪最長 7 分鐘（路線加長後，正常約 3 分多鐘）
-const CFG = { diff: 1, auto: true, aiHeli: true, ...store.get('cfg', {}) };
+const CFG = { diff: 1, auto: true, aiHeli: true, cond: 'std', col: true, ping: true, ...store.get('cfg', {}) };
+let TPREF = {}; // 學生選的角色意願：d＝想當駕駛、g＝想當射手
 const PUBLIC_PLAY = 'https://op06dhans-eng.github.io/supply-convoy/play.html';
 // QR Code 指向遊戲大廳 go.html：學生掃一次，老師打開哪款遊戲，手機就自動進哪款
 function studentURL() { return location.protocol === 'file:' ? PUBLIC_PLAY.replace('play.html', 'go.html') : location.origin + location.pathname.replace(/[^/]*$/, '') + 'go.html'; }
@@ -4799,6 +4877,7 @@ function teacherInit() {
   NET.on('board', (b) => { TS.board = b || {}; });
   NET.on('people', (p) => { TS.people = p || {}; });
   NET.on('players', (p) => { TPLAYERS = p || {}; renderTeams(); });
+  NET.on('pref', (p) => { TPREF = p || {}; });
   NET.onChild('req', { added: (pid, r) => handleReq(pid, r) });
   const vdIn = (k, a) => { const v = W.veh[+k]; if (!v || !a || TS.rehearsal) return; if (v.driverStale) { const age = (NET.now() - a.t) / 1000; if (Math.abs(a.d + a.v * Math.max(0, age) - v.d) > 20) return; v.driverStale = false; } v.vd = a; v.vdT = performance.now(); };
   NET.onChild('vd', { added: vdIn, changed: vdIn });
@@ -4842,6 +4921,8 @@ function renderCtl() {
   $('tRoundInfo').textContent = TS.round ? `已完成 ${Object.keys(TS.board).length ? TS.round - (busy() ? 1 : 0) : 0} 輪。每輪約 3 分鐘，最多 ${LIMIT_SEC / 60} 分鐘。` : '學生掃 QR Code 選隊，再按開始。每隊最多 16 人、8 台車。';
   $('tDiff').textContent = `難度：${['簡單', '普通', '困難'][CFG.diff]}`; $('tAuto').textContent = `電腦自動攻擊：${CFG.auto ? '開' : '關'}`; $('tAiHeli').textContent = `電腦直升機（老師沒開時）：${CFG.aiHeli ? '開' : '關'}`;
   $('tSnd').textContent = `音效：${SFX.on ? '開' : '關'}`;
+  $('tCond').textContent = `本輪狀況：${CFG.cond === 'rot' ? '每輪輪換' : condOf(CFG.cond).name}`; $('tCond').disabled = busy();
+  $('tCol').textContent = `車子互相碰撞：${CFG.col ? '開' : '關'}`; $('tPing').textContent = `駕駛射手互傳訊息：${CFG.ping ? '開' : '關'}`;
 }
 // 配對：每隊兩人一車。第二輪同一組互換角色；第三輪重新抽籤，以此類推
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
@@ -4857,9 +4938,22 @@ function makeCrew(teams) {
       const rest = shuffle([...left]);
       for (const pr of list) { if (!rest.length) break; if (!pr[0]) pr[0] = rest.shift(); else if (!pr[1]) pr[1] = rest.shift(); }
       while (rest.length) list.push([rest.shift(), rest.shift() || '']);
-    } else { const s = shuffle(mem.slice()); while (s.length) { const a = s.shift(), b = s.shift() || ''; list.push(R() < 0.5 || !b ? [a, b] : [b, a]); } }
-    // 單數：剩下的人隨機當駕駛或射手，另一個位置由電腦代打
-    list = list.map(([d, g]) => (!g && R() < 0.5) ? ['', d] : [d, g]);
+    } else {
+      // 先照意願配：想開車的配想當射手的，再配「都可以」的；兩個人意願一樣時隨機決定誰讓步
+      const P = (p) => TPREF[p] || ''; const s = shuffle(mem.slice());
+      const Dq = s.filter(p => P(p) === 'd'), Gq = s.filter(p => P(p) === 'g'), Aq = s.filter(p => !P(p));
+      while (Dq.length && Gq.length) list.push([Dq.pop(), Gq.pop()]);
+      while (Dq.length && Aq.length) list.push([Dq.pop(), Aq.pop()]);
+      while (Gq.length && Aq.length) list.push([Aq.pop(), Gq.pop()]);
+      while (Aq.length >= 2) { const a = Aq.pop(), b = Aq.pop(); list.push(R() < 0.5 ? [a, b] : [b, a]); }
+      while (Dq.length >= 2) list.push([Dq.pop(), Dq.pop()]);
+      while (Gq.length >= 2) { const a = Gq.pop(), b = Gq.pop(); list.push([a, b]); }
+      for (const p of [...Dq, ...Aq]) list.push([p, '']); for (const p of Gq) list.push(['', p]);
+      shuffle(list);
+    }
+    if (swap) list = list.map(([d, g]) => (TPREF[g] === 'd' || TPREF[d] === 'g') ? [g, d] : [d, g]); // 互換那一輪：換了會違反意願的那一組就不換
+    // 單數：剩下的人照意願（沒選就隨機）當駕駛或射手，另一個位置由電腦代打
+    list = list.map(([d, g]) => (!g && d && (TPREF[d] === 'g' || (!TPREF[d] && R() < 0.5))) ? ['', d] : (!d && g && TPREF[g] === 'd') ? [g, ''] : [d, g]);
     list = list.slice(0, VEH_MAX); pairs[t] = list;
     list.forEach(([d, g], k) => crew.push({ t, n: k + 1, d: d || '', g: g || '', dc: d ? TPLAYERS[d].call : '', gc: g ? TPLAYERS[g].call : '' }));
   }
@@ -4874,16 +4968,16 @@ function tStartRound(which = 'all') {
   const crew = makeCrew(teams); if (!crew.length) return;
   TS.swapped = teams.filter(t => TS.tr[t] % 2 === 1); for (const t of teams) TS.tr[t]++; TS.teams = teams;
   TS.rec = []; TS.paused = false; W.paused = false; AIH.tv = null; aiHeliReset(); TS.round++; TS.crew = crew; TS.phase = 'count'; TS.startAt = NET.now() + COUNT_SEC * 1000; TS.endsAt = TS.startAt + LIMIT_SEC * 1000;
-  for (const p of ['vd', 'vg', 'hit', 'msl', 'jam', 'imp', 'res', 'w']) NET.remove(p);
-  simReset(); placeMines(mineSeed(TS.sid, TS.round)); initVehicles(crew); W.el = 0; W.t0 = TS.startAt; SIM.diff = CFG.diff; SIM.auto = CFG.auto; heliStop(); setTeacherView('map');
+  for (const p of ['vd', 'vg', 'hit', 'msl', 'jam', 'imp', 'res', 'w', 'ping']) NET.remove(p);
+  const cond = pickCond(); simReset(); SIM.cond = cond; FOGGY = cond === 'fog'; COLLIDE = CFG.col; setMode(MODE); placeMines(mineSeed(TS.sid, TS.round), cond === 'mines'); initVehicles(crew); W.el = 0; W.t0 = TS.startAt; SIM.diff = CFG.diff; SIM.auto = CFG.auto; heliStop(); setTeacherView('map');
   const grace = performance.now() + COUNT_SEC * 1000 + 2000; for (const v of W.veh) { v.vdT = grace; v.vgT = grace; }
   NET.set('crew', crew);
-  NET.set('meta', { sid: TS.sid, phase: 'count', round: TS.round, teams, startAt: TS.startAt, endsAt: TS.endsAt });
+  NET.set('meta', { sid: TS.sid, phase: 'count', round: TS.round, teams, startAt: TS.startAt, endsAt: TS.endsAt, cond, col: CFG.col ? 1 : 0, ping: CFG.ping ? 1 : 0 });
   $('tPanel').hidden = true; $('tShow').hidden = false; $('tRes').hidden = true;
   showPairs(crew); renderCtl();
 }
 function showPairs(crew) {
-  let h = `<h1>第 ${TS.round} 輪：${TS.teams.length === 4 || TS.teams.length > 1 ? TS.teams.map(t => TEAMS[t].name).join('、') : TEAMS[TS.teams[0]].name}上場</h1><p>看自己的手機就知道你是駕駛還是射手、搭檔是誰。${TS.swapped.length ? `${TS.swapped.map(t => TEAMS[t].name).join('、')}這次駕駛和射手互換。` : ''}</p><div class="row2">`;
+  let h = `<h1>第 ${TS.round} 輪：${TS.teams.length === 4 || TS.teams.length > 1 ? TS.teams.map(t => TEAMS[t].name).join('、') : TEAMS[TS.teams[0]].name}上場</h1><p>看自己的手機就知道你是駕駛還是射手、搭檔是誰。${SIM.cond !== 'std' ? `<br><b style="color:#ffb15a">本輪狀況：${condOf(SIM.cond).name}</b>　${condOf(SIM.cond).desc}` : ''}${TS.swapped.length ? `${TS.swapped.map(t => TEAMS[t].name).join('、')}這次駕駛和射手互換。` : ''}</p><div class="row2">`;
   for (let t = 0; t < 4; t++) { const list = crew.filter(c => c.t === t); if (!list.length) continue; h += `<div><h2 style="color:${TEAMS[t].c}">${TEAMS[t].name}</h2><table class="pairs"><tr><th>車</th><th>駕駛</th><th>射手</th></tr>${list.map(c => `<tr><td>${c.n}</td><td>${c.dc ? c.dc.replace(TEAMS[t].name + ' ', '') : '電腦'}</td><td>${c.gc ? c.gc.replace(TEAMS[t].name + ' ', '') : '電腦'}</td></tr>`).join('')}</table></div>`; }
   h += `</div><button class="btn" id="prClose">關閉</button>`;
   $('tResCard').innerHTML = h; $('tRes').hidden = false; $('prClose').onclick = () => { $('tRes').hidden = true; };
@@ -4913,7 +5007,7 @@ function buildResult() {
   a = best(x => x.dodges); if (a) awards.push({ title: '閃過無人機最多（駕駛）', who: nm(a.i, 'd'), team: veh[a.i].t, detail: `${a.v} 次` });
   a = best(x => x.heli); if (a) awards.push({ title: '飛彈命中直升機', who: nm(a.i, 'g'), team: veh[a.i].t, detail: `${a.v} 發` });
   a = best(x => x.arr ? x.cargo : -1, 0); if (a) awards.push({ title: '補給最完整', who: `${TEAMS[veh[a.i].t].name} ${veh[a.i].n} 號車`, team: veh[a.i].t, detail: `${a.v}%` });
-  return { round: TS.round, teams, veh, awards, next: TS.round % 2 === 1, cnt: { ...SIM.cnt } };
+  return { round: TS.round, teams, veh, awards, next: TS.round % 2 === 1, cnt: { ...SIM.cnt }, cond: SIM.cond };
 }
 function mergePeople(res) {
   TS.crew.forEach((c, i) => { const x = res.veh[i]; for (const [pid, role] of [[c.d, 'd'], [c.g, 'g']]) { if (!pid || !TPLAYERS[pid]) continue; const p = TS.people[pid] || { call: TPLAYERS[pid].call, team: TPLAYERS[pid].team, cargo: 0, kills: 0, dodges: 0, rounds: 0 }; p.rounds++; p.cargo += x.cargo; if (role === 'g') p.kills += x.kills; else p.dodges += x.dodges; TS.people[pid] = p; } });
@@ -4922,13 +5016,14 @@ function showTeacherResult(r, rehearsal) {
   let h = `<h1>${rehearsal ? '演練結果' : `第 ${r.round} 輪結果`}</h1>` + teamRankHtml(r.teams, -1);
   const v = r.veh; const sum = (f) => v.reduce((a, x) => a + f(x), 0);
   h += `<div class="stats"><div><b>${sum(x => x.arr)}／${v.length}</b><span>抵達的車</span></div><div><b>${sum(x => x.kills)}</b><span>被擊落的無人機</span></div><div><b>${sum(x => x.dodges)}</b><span>被閃過</span></div><div><b>${sum(x => x.downs)}</b><span>車輛失去動力</span></div><div><b>${sum(x => x.heli)}</b><span>飛彈命中直升機</span></div></div>`;
-  h += awardsHtml(r.awards) + cntHtml(r.cnt) + knowHtml(r.round || 1);
+  if (r.cond && r.cond !== 'std') h += `<h2>本輪狀況：${condOf(r.cond).name}</h2><p>${condOf(r.cond).q}</p>`;
+  h += awardsHtml(r.awards) + cntHtml(r.cnt) + costHtml(r.cnt) + knowHtml(r.round || 1);
   h += `<div class="row2"><button class="btn go" id="trBack">回到大廳</button><button class="btn" id="trHide">先看畫面</button></div>${TS.lastHl ? '<button class="btn" id="trRp">再看一次精彩重播</button>' : ''}`;
   $('tResCard').innerHTML = h; $('tRes').hidden = false;
   if (TS.lastHl) $('trRp').onclick = () => { $('tRes').hidden = true; startReplay(() => showTeacherResult(r, rehearsal), TS.lastHl); };
   $('trBack').onclick = () => { $('tRes').hidden = true; backToLobby(); }; $('trHide').onclick = () => { $('tRes').hidden = true; };
 }
-function backToLobby() { TS.phase = 'lobby'; if (!TS.rehearsal) NET.update('meta', { phase: 'lobby' }); hideVehicles(); simReset(); W.veh = []; renderCtl(); }
+function backToLobby() { FOGGY = false; setMode(MODE); TS.phase = 'lobby'; if (!TS.rehearsal) NET.update('meta', { phase: 'lobby' }); hideVehicles(); simReset(); W.veh = []; renderCtl(); }
 function publishRank() {
   const rows = Object.keys(TS.board).map(t => ({ t: +t, avg: Math.round(TS.board[t].sum / TS.board[t].rounds) })).sort((a, b) => b.avg - a.avg);
   const ppl = Object.values(TS.people); const top = (f, unit) => ppl.filter(p => f(p) > 0).sort((a, b) => f(b) - f(a)).slice(0, 5).map(p => ({ call: p.call, team: p.team, v: `${f(p)}${unit}` }));
@@ -4941,7 +5036,7 @@ function startRehearsal() {
   if (busy()) return;
   const crew = []; for (let t = 0; t < 4; t++) for (let k = 1; k <= VEH_MAX; k++) crew.push({ t, n: k, d: '', g: '', dc: '', gc: '' });
   TS.rec = []; TS.paused = false; W.paused = false; AIH.tv = null; aiHeliReset(); TS.rehearsal = true; TS.crew = crew; TS.phase = 'run'; TS.startAt = NET.now(); TS.endsAt = TS.startAt + LIMIT_SEC * 1000;
-  simReset(); placeMines((Math.random() * 4e9) >>> 0); initVehicles(crew); W.el = 0; W.t0 = TS.startAt; SIM.diff = CFG.diff; SIM.auto = CFG.auto; setTeacherView('map');
+  const cond = pickCond(); simReset(); SIM.cond = cond; FOGGY = cond === 'fog'; setMode(MODE); placeMines((Math.random() * 4e9) >>> 0, cond === 'mines'); initVehicles(crew); W.el = 0; W.t0 = TS.startAt; SIM.diff = CFG.diff; SIM.auto = CFG.auto; setTeacherView('map');
   $('tPanel').hidden = true; $('tShow').hidden = false; $('tRes').hidden = true; renderCtl();
 }
 function stopRehearsal(show) { if (!TS.rehearsal) return; if (show) tEndRound('stop'); else { TS.rehearsal = false; TS.phase = 'lobby'; heliStop(); hideVehicles(); W.veh = []; simReset(); renderCtl(); } }
@@ -4953,6 +5048,12 @@ $('tRehearse').onclick = () => { if (TS.rehearsal) stopRehearsal(true); else sta
 $('tSnd').onclick = () => { SFX.toggle(); renderCtl(); };
 $('tDiff').onclick = () => { CFG.diff = (CFG.diff + 1) % 3; SIM.diff = CFG.diff; store.set('cfg', CFG); renderCtl(); };
 $('tAiHeli').onclick = () => { CFG.aiHeli = !CFG.aiHeli; store.set('cfg', CFG); renderCtl(); };
+const COND_CYCLE = ['std', 'fiber', 'mines', 'swarm', 'fog', 'rot'];
+$('tCond').onclick = () => { if (busy()) return; CFG.cond = COND_CYCLE[(COND_CYCLE.indexOf(CFG.cond) + 1) % COND_CYCLE.length]; store.set('cfg', CFG); renderCtl(); };
+$('tCol').onclick = () => { CFG.col = !CFG.col; store.set('cfg', CFG); renderCtl(); };
+$('tPing').onclick = () => { CFG.ping = !CFG.ping; store.set('cfg', CFG); renderCtl(); };
+// 這一輪用什麼狀況：「每輪輪換」時依輪次換下一種
+function pickCond() { if (CFG.cond !== 'rot') return CFG.cond; const list = ['std', 'fiber', 'mines', 'swarm', 'fog']; return list[(TS.round - 1 + list.length) % list.length]; }
 $('tAuto').onclick = () => { CFG.auto = !CFG.auto; SIM.auto = CFG.auto; store.set('cfg', CFG); renderCtl(); };
 $('tRank').onclick = publishRank;
 let resetArm = 0;

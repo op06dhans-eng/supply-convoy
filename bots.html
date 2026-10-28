@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>假學生連線預演</title>
+<style>
+:root { --bg: #111416; --card: #1b2023; --line: #3a4246; --fg: #f2f4f3; --muted: #aab5b0; --ok: #3fd17a; --warn: #ffb15a; --bad: #ff5a4e; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif; font-weight: 700; }
+main { max-width: 980px; margin: 0 auto; padding: 18px 16px 60px; display: flex; flex-direction: column; gap: 14px; }
+h1 { margin: 0; font-size: 32px; font-weight: 900; }
+h2 { margin: 0 0 6px; font-size: 22px; font-weight: 900; }
+p { margin: 0; font-size: 17px; line-height: 1.6; color: #dfe6e3; }
+.card { background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: inherit; font-size: 18px; font-weight: 900; min-height: 48px; padding: 6px 16px; border-radius: 10px; border: 2px solid var(--line); background: #2a3135; color: var(--fg); cursor: pointer; }
+button.on { border-color: var(--warn); background: #6b4a1f; }
+button.go { border-color: var(--ok); background: #1f5a36; }
+button.stop { border-color: var(--bad); background: #5a231f; }
+button:disabled { opacity: 0.4; cursor: default; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.stats div { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 10px; text-align: center; }
+.stats b { display: block; font-size: 30px; }
+.stats span { font-size: 15px; color: var(--muted); }
+#verdict { font-size: 20px; line-height: 1.6; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+td, th { border-bottom: 1px solid var(--line); padding: 3px 6px; text-align: left; }
+th { color: var(--muted); }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+a { color: #8fc4ff; }
+</style>
+</head>
+<body>
+<main>
+  <h1>假學生連線預演：補給公路</h1>
+  <div class="card">
+    <h2>怎麼用</h2>
+    <p>1. 先打開老師畫面：<a href="https://op06dhans-eng.github.io/supply-convoy/" target="_blank">https://op06dhans-eng.github.io/supply-convoy/</a>（另開一個分頁，或用教室電腦開）。</p>
+    <p>2. 在這裡選人數，按「開始」。假學生會像真的手機一樣連上線、自己選隊，老師畫面上的隊伍人數會跟著增加。</p>
+    <p>3. 在老師畫面按上場（「紅隊上場」或「全班一起上場」）。假學生會自己開車或當射手（駕駛會偶爾換車道），你在老師畫面上就能看到。</p>
+    <p>4. 下面會即時顯示流量和老師資料的更新速度。玩完按「停止並移除假學生」，他們會從隊伍中消失。</p>
+    <p class="warn">重要：這一頁請用「另一台電腦」或「另一個瀏覽器視窗」打開，老師畫面要一直留在螢幕最前面。瀏覽器會暫停被切到後面的分頁，老師畫面一被蓋住遊戲就會停下來。</p>
+    <p class="warn">注意：假學生會佔用真正的隊伍名額，上課前記得先移除。同一個資料庫最多同時 100 個連線，兩款遊戲共用。</p>
+  </div>
+  <div class="card">
+    <h2>人數與隊伍</h2>
+    <div class="row" id="nRow"></div>
+    <div class="row" id="tRow"></div>
+    <div class="row"><button class="go" id="bGo">開始</button><button class="stop" id="bStop" disabled>停止並移除假學生</button><span id="state" class="muted"></span></div>
+  </div>
+  <div class="card">
+    <h2>即時狀況</h2>
+    <div class="stats">
+      <div><b id="sConn">0</b><span>已連上線</span></div>
+      <div><b id="sJoin">0</b><span>已加入隊伍</span></div>
+      <div><b id="sPlay">0</b><span>正在遊戲</span></div>
+      <div><b id="sUpd">—</b><span>老師畫面資料更新間隔</span></div>
+      <div><b id="sKB">0</b><span>每位學生下載（KB／秒）</span></div>
+      <div><b id="sHour">0</b><span>全班估計（MB／每分鐘遊戲）</span></div>
+    </div>
+    <div id="verdict"></div>
+    <p class="muted" style="color:var(--muted);font-size:15px">流量只計算遊戲進行中送給學生的畫面資料。Firebase 免費方案每月可下載 10 GB（兩款遊戲合計）。</p>
+  </div>
+  <div class="card"><h2>每位假學生</h2><table id="tbl"></table></div>
+</main>
+<script type="module">
+const GAME = 'convoy', ROOT = 'sr', CH = 'supply-convoy-local';
+const CFG = { apiKey: 'AIzaSyCtxZmkrZ8tcCONC5DQbEU5ySlos9i-a8o', authDomain: 'drone-swarm-class.firebaseapp.com', databaseURL: 'https://drone-swarm-class-default-rtdb.asia-southeast1.firebasedatabase.app', projectId: 'drone-swarm-class', storageBucket: 'drone-swarm-class.firebasestorage.app', messagingSenderId: '528664638395', appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e' };
+const LOCAL = new URLSearchParams(location.search).has('local');
+const TEAMS = ['紅隊', '藍隊', '綠隊', '黃隊'];
+const $ = (id) => document.getElementById(id);
+const R = Math.random;
+let N = 20, TEAMMODE = 'even';
+const ROLE = 'student';
+
+/* ---------- 連線：每位假學生各自一條連線（跟真的手機一樣） ---------- */
+let A = null, D = null;
+async function makeNet(i) {
+  if (LOCAL) return makeLocalNet();
+  if (!A) { A = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'); D = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js'); }
+  const app = A.initializeApp(CFG, 'bot' + i + '-' + Date.now()); const db = D.getDatabase(app);
+  const Rf = (p) => D.ref(db, p ? ROOT + '/' + p : ROOT); let offset = 0;
+  const NET = {
+    online: false, app, now: () => Date.now() + offset,
+    set: (p, v) => D.set(Rf(p), v).catch(() => {}), remove: (p) => D.remove(Rf(p)).catch(() => {}),
+    push: (p, v) => { const r = D.push(Rf(p)); D.set(r, v).catch(() => {}); },
+    on: (p, cb) => D.onValue(Rf(p), (s) => cb(s.val())),
+    onChild(p, h) { const u = []; if (h.added) u.push(D.onChildAdded(Rf(p), (s) => h.added(s.key, s.val()))); if (h.changed) u.push(D.onChildChanged(Rf(p), (s) => h.changed(s.key, s.val()))); return () => u.forEach(f => f()); },
+    onDisconnectRemove: (p) => D.onDisconnect(Rf(p)).remove(),
+    close: () => { try { D.goOffline(db); } catch (_) {} try { A.deleteApp(app); } catch (_) {} },
+  };
+  D.onValue(D.ref(db, '.info/serverTimeOffset'), (s) => { offset = s.val() || 0; });
+  D.onValue(D.ref(db, '.info/connected'), (s) => { NET.online = !!s.val(); });
+  return NET;
+}
+// 同一台電腦練習用（網址加 ?local）：跟遊戲的「練習連線模式」一樣用分頁互傳
+function makeLocalNet() {
+  const ch = new BroadcastChannel(CH); let tree = {}; const subs = new Set();
+  const parts = (p) => p.split('/').filter(Boolean); const clone = (v) => (v === null || v === undefined) ? null : JSON.parse(JSON.stringify(v));
+  const getAt = (p) => { let n = tree; for (const k of parts(p)) { if (n === null || typeof n !== 'object') return null; n = n[k]; if (n === undefined) return null; } return n; };
+  function setAt(p, v) { const ks = parts(p); if (!ks.length) { tree = clone(v) || {}; return; } let n = tree; for (let i = 0; i < ks.length - 1; i++) { if (n[ks[i]] === null || typeof n[ks[i]] !== 'object') n[ks[i]] = {}; n = n[ks[i]]; } const last = ks[ks.length - 1]; if (v === null || v === undefined) delete n[last]; else n[last] = clone(v); }
+  const related = (a, b) => { const X = parts(a), Y = parts(b); const n = Math.min(X.length, Y.length); for (let i = 0; i < n; i++) if (X[i] !== Y[i]) return false; return true; };
+  function apply(op) {
+    const touched = [...subs].filter(s => related(s.path, op.path)); const before = touched.map(s => JSON.stringify(getAt(s.path)));
+    if (op.t === 'set') setAt(op.path, op.v); else if (op.t === 'update') for (const k in op.v) setAt(op.path + '/' + k, op.v[k]); else if (op.t === 'root') tree = clone(op.v) || {};
+    touched.forEach((s, i) => { const nowV = getAt(s.path); const nowS = JSON.stringify(nowV); if (nowS === before[i]) return; if (s.kind === 'value') { s.cb(clone(nowV)); return; } const prev = before[i] === 'null' ? {} : JSON.parse(before[i]); const cur = nowV && typeof nowV === 'object' ? nowV : {}; for (const k in cur) { if (!(k in prev)) s.added && s.added(k, clone(cur[k])); else if (JSON.stringify(prev[k]) !== JSON.stringify(cur[k])) s.changed && s.changed(k, clone(cur[k])); } });
+  }
+  const send = (op) => { apply(op); try { ch.postMessage(op); } catch (_) {} };
+  const id = Math.random().toString(36).slice(2); const offs = [];
+  ch.onmessage = (e) => { const m = e.data; if (!m) return; if (m.sync === 'req') return; if (m.sync === 'full') { if (m.to === id) apply({ t: 'root', path: '', v: m.v }); return; } apply(m); };
+  ch.postMessage({ sync: 'req', id });
+  return {
+    online: true, now: () => Date.now(),
+    set: (path, v) => send({ t: 'set', path, v }), remove: (path) => send({ t: 'set', path, v: null }),
+    push: (path, v) => send({ t: 'set', path: path + '/' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), v }),
+    on(path, cb) { const s = { path, kind: 'value', cb }; subs.add(s); queueMicrotask(() => cb(clone(getAt(path)))); return () => subs.delete(s); },
+    onChild(path, h) { const s = { path, kind: 'child', ...h }; subs.add(s); return () => subs.delete(s); },
+    onDisconnectRemove(p) { offs.push(p); },
+    close() { for (const p of offs) try { ch.postMessage({ t: 'set', path: p, v: null }); } catch (_) {} ch.close(); },
+  };
+}
+
+/* ---------- 共用的統計 ---------- */
+const ST = { bytes: 0, t0: performance.now(), upd: [], lastUpd: 0, playing: 0 };
+const BOTS = [];
+function teamFor(i) { return TEAMMODE === 'even' ? i % 4 : +TEAMMODE; }
+
+/* ---------- 補給公路的假學生：開車或當射手 ---------- */
+const FINISH = Math.round(2930 * 1.5), CRUISE = 27.8, LANE = 3.8;
+const laneX = (l) => (l - 3.5) * LANE;
+function convoyBot(b) {
+  const net = b.net; let META = {}, CREW = [], vi = -1, role = '', wUn = null, car = null, sendT = 0, gotSnap = false;
+  for (const p of ['players/', 'req/', 'ans/']) net.onDisconnectRemove(p + b.pid);
+  net.set('req/' + b.pid, { team: b.team, at: net.now(), no: 0 });
+  net.on('players/' + b.pid, (p) => { if (p && p.call) { b.call = p.call; b.joined = true; } });
+  const onMeta = () => {
+    vi = -1; role = ''; CREW.forEach((c, i) => { if (!c) return; if (c.d === b.pid) { vi = i; role = 'drive'; } else if (c.g === b.pid) { vi = i; role = 'gun'; } });
+    const busy = (META.phase === 'count' || META.phase === 'run') && vi >= 0;
+    if (busy && !wUn) {
+      gotSnap = false; car = { d: 40, x: 0, v: 0, l: 3, st: 0, pk: 0, tl: 3, laneT: 0 };
+      for (const p of ['vd/', 'vg/']) net.onDisconnectRemove(p + vi);
+      wUn = net.on('w', (str) => {
+        if (!str) return; ST.bytes += str.length; const pn = performance.now(); if (b.i === 0) { if (ST.lastUpd) ST.upd.push(pn - ST.lastUpd); ST.lastUpd = pn; if (ST.upd.length > 50) ST.upd.shift(); }
+        let s; try { s = JSON.parse(str); } catch (_) { return; } const a = s.v && s.v[vi]; if (!a) return;
+        if (!gotSnap) { gotSnap = true; car.d = a[0]; car.x = a[1]; car.l = Math.round(car.x / LANE + 3.5); car.tl = car.l; }
+        car.st = a[5]; car.pk = a[12]; b.info = `${['行駛', '拋錨', '抵達'][a[5]] || ''}　${Math.round(a[0])} 公尺　裝甲 ${a[3]}`;
+      });
+    }
+    if (!busy && wUn) { wUn(); wUn = null; if (vi >= 0) { net.remove('vd/' + vi); net.remove('vg/' + vi); } car = null; }
+    b.role = role === 'drive' ? '駕駛' : role === 'gun' ? '射手' : '';
+  };
+  net.on('meta', (m) => { META = m || {}; onMeta(); });
+  net.on('crew', (c) => { CREW = Array.isArray(c) ? c : Object.values(c || {}); onMeta(); });
+  b.tick = (dt) => {
+    b.playing = !!(car && META.phase === 'run');
+    if (!car || META.phase !== 'run' || META.paused) return;
+    if (role === 'drive') {
+      if (car.st === 1) car.v = Math.max(0, car.v - 14 * dt);
+      else if (car.st === 2) car.v = car.d < car.pk ? 6 : 0;
+      else car.v = Math.min(CRUISE, car.v + 3.6 * dt);
+      car.d += car.v * dt;
+      // 偶爾換車道（像學生在閃東西）
+      car.laneT -= dt; if (car.laneT <= 0 && car.st === 0) { car.laneT = 2 + R() * 4; car.tl = Math.max(0, Math.min(7, car.tl + (R() < 0.5 ? -1 : 1))); }
+      const want = laneX(car.tl); car.x += Math.max(-6 * dt, Math.min(6 * dt, want - car.x)); car.l = Math.round(car.x / LANE + 3.5);
+      sendT -= dt; if (sendT <= 0) { sendT = 0.15; net.set('vd/' + vi, { d: Math.round(car.d * 10) / 10, x: Math.round(car.x * 100) / 100, v: Math.round(car.v * 10) / 10, l: car.l, t: net.now() }); }
+    } else if (role === 'gun') {
+      sendT -= dt; if (sendT <= 0) { sendT = 0.2; const t = performance.now() / 1000; net.set('vg/' + vi, { y: Math.round(Math.sin(t * 0.3 + b.i) * 150) / 100, p: Math.round((0.2 + Math.sin(t * 0.7 + b.i) * 0.15) * 100) / 100, f: (Math.sin(t * 1.3 + b.i) > 0.4) ? 1 : 0, t: net.now() }); }
+    }
+  };
+  b.stop = () => { if (wUn) wUn(); if (vi >= 0) { net.remove('vd/' + vi); net.remove('vg/' + vi); } for (const p of ['players/', 'req/', 'ans/']) net.remove(p + b.pid); };
+}
+
+/* ---------- 雷達站攻防的假學生：一架接一架往雷達站飛 ---------- */
+const S_FLY = 0, S_HIT = 4, S_OUT = 5, ALL = 4;
+function radarBot(b) {
+  const net = b.net; let META = {}, used = 0, fly = null, waitT = 0, sendT = 0, posUn = null, gunsUn = null, wave = -1;
+  for (const p of ['players/', 'pos/', 'req/', 'ans/', 'kill/']) net.onDisconnectRemove(p + b.pid);
+  net.remove('ans/' + b.pid); net.set('req/' + b.pid, { team: b.team, at: net.now(), no: 0 });
+  net.on('players/' + b.pid, (p) => { if (p && p.call) { b.call = p.call; b.joined = true; } });
+  const myTurn = () => (META.phase === 'count' || META.phase === 'wave') && (META.team === ALL || META.team === b.team);
+  const count = (v) => { if (v) { ST.bytes += JSON.stringify(v).length + 20; } };
+  net.on('meta', (m) => {
+    META = m || {};
+    if (META.phase === 'wave' && myTurn() && wave !== META.wave) {
+      wave = META.wave; used = 0; fly = null; waitT = 0.3 + R() * 2;
+      if (META.team !== ALL && !posUn) posUn = net.onChild('pos', { added: (k, v) => count(v), changed: (k, v) => count(v) });
+      if (!gunsUn) gunsUn = net.on('guns', (g) => { count(g); if (b.i === 0 && g) { const pn = performance.now(); if (ST.lastUpd) ST.upd.push(pn - ST.lastUpd); ST.lastUpd = pn; if (ST.upd.length > 50) ST.upd.shift(); } });
+    }
+    if (!myTurn() || META.phase !== 'wave') { if (fly) { send(S_OUT); fly = null; } if (posUn) { posUn(); posUn = null; } if (gunsUn) { gunsUn(); gunsUn = null; } }
+  });
+  net.on('kill/' + b.pid, (k) => { if (!k || !fly || k.s !== fly.sortie) return; fly = null; waitT = 2.5 + R(); b.info = `第 ${used} 架被擊落（${({ gun: '機槍', missile: '飛彈', mw: '微波', net: '攔截網' })[k.how] || k.how}）`; });
+  const send = (state) => { if (!fly) return; const p = fly.p; net.set('pos/' + b.pid, [Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10, Math.round(p.z * 10) / 10, Math.round(fly.yaw * 100) / 100, 0, Math.round(fly.roll * 100) / 100, state, fly.sortie]); };
+  b.tick = (dt) => {
+    b.playing = !!fly;
+    if (META.phase !== 'wave' || !myTurn()) return;
+    if (!fly) {
+      const max = META.sorties || 5; if (used >= max || (META.endsAt && META.endsAt - net.now() < 4000)) return;
+      waitT -= dt; if (waitT > 0) return;
+      used++; const a = -Math.PI / 2 + (R() - 0.5) * 1.6, r = 680 + R() * 120;
+      fly = { sortie: META.wave * 10 + used, p: { x: Math.cos(a) * r, y: 14 + R() * 10, z: Math.sin(a) * r }, yaw: 0, roll: 0, weave: R() * 6, spd: 61 * (1 + R() * 0.3) };
+      b.info = `第 ${used} 架起飛`; send(S_FLY); return;
+    }
+    const p = fly.p; const dist = Math.hypot(p.x, p.z);
+    const t = performance.now() / 1000; const side = Math.sin(t * 0.8 + fly.weave) * 0.35 * Math.min(1, dist / 300);
+    let ux = -p.x / dist, uz = -p.z / dist; const c = Math.cos(side), s = Math.sin(side); [ux, uz] = [ux * c - uz * s, ux * s + uz * c];
+    p.x += ux * fly.spd * dt; p.z += uz * fly.spd * dt; p.y += ((dist < 120 ? 7 : 12 + Math.sin(t + fly.weave) * 4) - p.y) * Math.min(1, dt * 0.8);
+    fly.yaw = Math.atan2(-ux, -uz); fly.roll = side * 0.6;
+    if (dist < 6) { send(S_HIT); net.push('hit', { p: b.pid, s: fly.sortie, k: 'radar', x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, z: Math.round(p.z * 10) / 10 }); b.info = `第 ${used} 架命中雷達站`; fly = null; waitT = 2.5; return; }
+    sendT -= dt; if (sendT <= 0) { sendT = META.team === ALL ? 0.25 : 1 / 6; send(S_FLY); }
+  };
+  b.stop = () => { if (fly) send(S_OUT); if (posUn) posUn(); if (gunsUn) gunsUn(); for (const p of ['players/', 'pos/', 'req/', 'ans/', 'kill/']) net.remove(p + b.pid); };
+}
+
+/* ---------- 畫面 ---------- */
+function renderButtons() {
+  $('nRow').innerHTML = '<span>人數：</span>' + [5, 10, 20, 30, 40, 60].map(n => `<button data-n="${n}" class="${n === N ? 'on' : ''}">${n} 人</button>`).join('');
+  $('tRow').innerHTML = '<span>隊伍：</span>' + [['even', '平均分到四隊'], ['0', '全部紅隊'], ['1', '全部藍隊'], ['2', '全部綠隊'], ['3', '全部黃隊']].map(([k, t]) => `<button data-t="${k}" class="${k === TEAMMODE ? 'on' : ''}">${t}</button>`).join('');
+}
+renderButtons();
+$('nRow').onclick = (e) => { const b = e.target.closest('button'); if (!b || BOTS.length) return; N = +b.dataset.n; renderButtons(); };
+$('tRow').onclick = (e) => { const b = e.target.closest('button'); if (!b || BOTS.length) return; TEAMMODE = b.dataset.t; renderButtons(); };
+$('bGo').onclick = async () => {
+  if (BOTS.length) return; $('bGo').disabled = true; $('state').textContent = '連線中…';
+  const max = GAME === 'radar' ? 15 : 16;
+  for (let i = 0; i < N; i++) {
+    const net = await makeNet(i); const b = { i, pid: 'bot' + Math.random().toString(36).slice(2, 8), team: teamFor(i), net, call: '', joined: false, role: '', info: '' };
+    if (TEAMMODE !== 'even' && i >= max) { b.info = '這一隊已額滿（每隊最多 ' + max + ' 人）'; }
+    BOTS.push(b); (GAME === 'radar' ? radarBot : convoyBot)(b);
+    await new Promise(r => setTimeout(r, 60)); // 一個一個加入，像學生陸續掃碼
+  }
+  $('bStop').disabled = false; $('state').textContent = '';
+  ST.bytes = 0; ST.t0 = performance.now();
+};
+$('bStop').onclick = () => {
+  for (const b of BOTS) { try { b.stop(); } catch (_) {} setTimeout(() => { try { b.net.close(); } catch (_) {} }, 800); }
+  BOTS.length = 0; $('bGo').disabled = false; $('bStop').disabled = true; ST.upd = []; ST.lastUpd = 0;
+};
+addEventListener('pagehide', () => { for (const b of BOTS) try { b.stop(); } catch (_) {} });
+let last = performance.now(), statT = 0, kbHist = [];
+setInterval(() => {
+  const now = performance.now(); const dt = Math.min(0.3, (now - last) / 1000); last = now;
+  for (const b of BOTS) try { b.tick && b.tick(dt); } catch (e) { console.warn(e); }
+  statT -= dt; if (statT > 0) return; statT = 1;
+  const conn = BOTS.filter(b => b.net.online).length, join = BOTS.filter(b => b.joined).length, play = BOTS.filter(b => b.playing).length;
+  $('sConn').textContent = conn; $('sJoin').textContent = join; $('sPlay').textContent = play;
+  const sec = (now - ST.t0) / 1000; const kbAll = ST.bytes / 1024 / Math.max(1, sec); ST.bytes = 0; ST.t0 = now;
+  const per = play ? kbAll / play : 0; if (play) kbHist.push(per); if (kbHist.length > 10) kbHist.shift();
+  const perAvg = kbHist.length ? kbHist.reduce((a, x) => a + x, 0) / kbHist.length : 0;
+  $('sKB').textContent = perAvg ? perAvg.toFixed(1) : '0';
+  const classN = GAME === 'radar' ? 60 : 64; $('sHour').textContent = perAvg ? Math.round(perAvg * classN * 60 / 1024) : '0';
+  const u = ST.upd.slice(-20); const avg = u.length ? u.reduce((a, x) => a + x, 0) / u.length : 0; const worst = u.length ? Math.max(...u) : 0;
+  $('sUpd').textContent = avg ? `${Math.round(avg)} 毫秒` : '—';
+  let v = '';
+  if (!BOTS.length) v = '';
+  else if (conn < BOTS.length) v = `<span class="warn">還有 ${BOTS.length - conn} 位假學生沒連上線（網路慢，或超過 100 個連線的上限）。</span>`;
+  else if (join < BOTS.filter(b => !/額滿/.test(b.info)).length) v = '<span class="warn">有假學生還沒加入隊伍：請確認老師畫面已經打開。</span>';
+  else if (!play) v = '<span class="ok">全部連上線、加入隊伍了。到老師畫面按上場就會開始。</span>';
+  else if (avg && (avg > 400 || worst > 400 * 3)) v = `<span class="bad">老師送出的資料變慢了（平均 ${Math.round(avg)} 毫秒一次，最慢 ${Math.round(worst)} 毫秒）：可能是老師畫面被切到後面的分頁（瀏覽器會暫停它），或老師電腦、網路跟不上這麼多人。</span>`;
+  else v = `<span class="ok">連線正常：${play} 位假學生正在${GAME === 'radar' ? '飛行' : '遊戲'}${avg ? `，老師資料平均每 ${Math.round(avg)} 毫秒更新一次` : ''}。</span>`;
+  $('verdict').innerHTML = v;
+  $('tbl').innerHTML = '<tr><th>#</th><th>隊伍</th><th>代號</th><th>連線</th><th>角色／狀態</th></tr>' + BOTS.map(b => `<tr><td>${b.i + 1}</td><td>${TEAMS[b.team]}</td><td>${b.call || '—'}</td><td class="${b.net.online ? 'ok' : 'warn'}">${b.net.online ? '已連線' : '連線中'}</td><td>${b.role ? b.role + '　' : ''}${b.info || ''}</td></tr>`).join('');
+}, 50);
+</script>
+</body>
+</html>

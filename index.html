@@ -4378,7 +4378,7 @@ $('qBtn').onclick = () => { QUALITY = QUALITY === 'high' ? 'low' : 'high'; store
 // 遊戲大廳：老師後來打開了另一款遊戲，學生手機自動跳過去（12 小時內、比這款更晚打開的才算）
 function followLobby() {
   // 遊戲大廳：老師後來打開了另一款遊戲（三款共用），學生手機自動跳過去
-  const OTHERS = { sr: 'supply-convoy', rd: 'radar-defense', fs: 'film-set' }; delete OTHERS['sr'];
+  const OTHERS = { sr: 'supply-convoy', rd: 'radar-defense', fs: 'Gun-movie' }; delete OTHERS['sr'];
   const L = { mine: null, others: {}, n: 0 }; let gone = false;
   const check = () => {
     if (gone || L.n < 3) return; const now = NET.now();

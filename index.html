@@ -2700,7 +2700,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '528664638395',
   appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e',
 };
-const VERSION = '1.10.0（駕駛射手互傳訊息、車子互相碰撞、選角色意願、每輪狀況、成本對照；遊戲大廳：學生掃一次 QR Code，老師打開哪款就進哪款；修正直升機機砲有時停不下來；下載的檔案直接打開也能顯示 QR Code 和材質；車輛標籤不再疊在一起；路線加長 50%，一趟約 3 分鐘；修正進隧道後看不到車：鏡頭在隧道、防護網、偽裝網底下自動降低，指揮地圖拿掉隧道頂；拿掉車道指示；提示一次一則、不擋畫面；卡車速度再提高 20%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
+const VERSION = '1.10.1（遊戲大廳加入第三款「片場」；駕駛射手互傳訊息、車子互相碰撞、選角色意願、每輪狀況、成本對照；遊戲大廳：學生掃一次 QR Code，老師打開哪款就進哪款；修正直升機機砲有時停不下來；下載的檔案直接打開也能顯示 QR Code 和材質；車輛標籤不再疊在一起；路線加長 50%，一趟約 3 分鐘；修正進隧道後看不到車：鏡頭在隧道、防護網、偽裝網底下自動降低，指揮地圖拿掉隧道頂；拿掉車道指示；提示一次一則、不擋畫面；卡車速度再提高 20%；路上加入被炸毀的車輛和標示出來的地雷；移除路中間的橋墩牆；發布新版時自動重新載入；開車改成按住才移動、放開停在原位；直放開車鏡頭拉遠並加車道指示；老師畫面學生車輛移動變平滑；修正射手結束後停在空白畫面；提示框移到下方不擋準星；結束練習移到左上角並要按兩次；地圖找不到車隊時自動移回；八線道、跟拍、重播、暫停、全班統計、飛彈可打無人機；機砲火舌與射速提高四成；選隊畫面也能單人練習；手機轉向時準星回到畫面中間；直升機音效、自動對準、火箭齊射、僚機回報、電腦射手會打飛彈）';
 const DB_ROOT = 'sr';
 // 直接在電腦上打開下載的檔案時（網址是 file://），旁邊沒有圖檔、模型和音效資料夾，改從 GitHub 網站載入
 const ASSET = location.protocol === 'file:' ? 'https://op06dhans-eng.github.io/supply-convoy/' : '';
@@ -4377,15 +4377,20 @@ $('qBtn').onclick = () => { QUALITY = QUALITY === 'high' ? 'low' : 'high'; store
 
 // 遊戲大廳：老師後來打開了另一款遊戲，學生手機自動跳過去（12 小時內、比這款更晚打開的才算）
 function followLobby() {
-  const L = { mine: null, other: null, n: 0 }; let gone = false;
+  // 遊戲大廳：老師後來打開了另一款遊戲（三款共用），學生手機自動跳過去
+  const OTHERS = { sr: 'supply-convoy', rd: 'radar-defense', fs: 'film-set' }; delete OTHERS['sr'];
+  const L = { mine: null, others: {}, n: 0 }; let gone = false;
   const check = () => {
-    if (gone || L.n < 2 || !L.other || !L.other.at || L.other.game !== 'radar') return; const now = NET.now();
-    if (now - L.other.at > 12 * 3600 * 1000 || (L.mine && L.mine.at >= L.other.at)) return;
-    gone = true; const url = location.origin + location.pathname.replace(/[^/]*\/[^/]*$/, '') + 'radar-defense/play.html';
-    document.body.insertAdjacentHTML('beforeend', '<div style="position:fixed;inset:0;z-index:99;background:rgba(10,12,14,0.94);display:grid;place-items:center;color:#fff;font:900 26px sans-serif;text-align:center;padding:20px">老師換到另一款遊戲了<br>正在帶你過去…</div>');
-    setTimeout(() => location.replace(url), 900);
+    if (gone || L.n < 3) return; const now = NET.now();
+    for (const [k, v] of Object.entries(L.others)) {
+      if (!v || !v.at || now - v.at > 12 * 3600 * 1000 || (L.mine && L.mine.at >= v.at)) continue;
+      gone = true; const url = location.origin + location.pathname.replace(/[^/]*\/[^/]*$/, '') + OTHERS[k] + '/play.html';
+      document.body.insertAdjacentHTML('beforeend', '<div style="position:fixed;inset:0;z-index:99;background:rgba(10,12,14,0.94);display:grid;place-items:center;color:#fff;font:900 26px sans-serif;text-align:center;padding:20px">老師換到另一款遊戲了<br>正在帶你過去…</div>');
+      setTimeout(() => location.replace(url), 900); return;
+    }
   };
-  let a = 0, b = 0; NET.on('lobby', (v) => { L.mine = v; if (!a) { a = 1; L.n++; } check(); }); NET.onRaw('rd/lobby', (v) => { L.other = v; if (!b) { b = 1; L.n++; } check(); });
+  let a = 0; NET.on('lobby', (v) => { L.mine = v; if (!a) { a = 1; L.n++; } check(); });
+  for (const k in OTHERS) { let b = 0; NET.onRaw(k + '/lobby', (v) => { L.others[k] = v; if (!b) { b = 1; L.n++; } check(); }); }
 }
 function studentInit() {
   if (!NET.local && location.protocol !== 'file:') followLobby();

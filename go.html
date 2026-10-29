@@ -18,7 +18,6 @@ h1 { margin: 0; font-size: clamp(30px, 8vw, 46px); font-weight: 900; }
 .pick { display: flex; flex-direction: column; gap: 12px; width: min(420px, 100%); margin-top: 8px; }
 .pick a { display: block; padding: 16px; border-radius: 14px; border: 3px solid var(--line); background: var(--card); color: var(--fg); text-decoration: none; font-size: 22px; font-weight: 900; }
 .pick a small { display: block; font-size: 15px; color: var(--muted); margin-top: 4px; }
-.pick a.on { border-color: var(--hot); }
 </style>
 </head>
 <body>
@@ -29,34 +28,34 @@ h1 { margin: 0; font-size: clamp(30px, 8vw, 46px); font-weight: 900; }
   <div class="pick" id="pick" hidden>
     <a id="gConvoy" href="#">補給公路<small>兩人一台車，把補給送到前線</small></a>
     <a id="gRadar" href="#">雷達站攻防<small>自己飛無人機，攻擊老師的雷達站</small></a>
+    <a id="gFilm" href="#">片場：戰爭片拍攝中<small>第一人稱射擊，四個劇組拍同一場戲</small></a>
   </div>
 </main>
 <script type="module">
 const CFG = { apiKey: 'AIzaSyCtxZmkrZ8tcCONC5DQbEU5ySlos9i-a8o', authDomain: 'drone-swarm-class.firebaseapp.com', databaseURL: 'https://drone-swarm-class-default-rtdb.asia-southeast1.firebasedatabase.app', projectId: 'drone-swarm-class', storageBucket: 'drone-swarm-class.firebasestorage.app', messagingSenderId: '528664638395', appId: '1:528664638395:web:e478a9b393bbfe4b85ca9e' };
-// 兩款遊戲的學生網址（同一個網站底下的兩個資料夾）
+// 三款遊戲的學生網址（同一個網站底下的三個資料夾）
 const BASE = location.protocol === 'file:' ? 'https://op06dhans-eng.github.io/' : location.origin + location.pathname.replace(/[^/]*\/[^/]*$/, '');
-const GAMES = { convoy: { name: '補給公路', url: BASE + 'supply-convoy/play.html' }, radar: { name: '雷達站攻防', url: BASE + 'radar-defense/play.html' } };
+const GAMES = { convoy: { name: '補給公路', url: BASE + 'supply-convoy/play.html', key: 'sr' }, radar: { name: '雷達站攻防', url: BASE + 'radar-defense/play.html', key: 'rd' }, film: { name: '片場：戰爭片拍攝中', url: BASE + 'film-set/play.html', key: 'fs' } };
 const $ = (id) => document.getElementById(id);
-$('gConvoy').href = GAMES.convoy.url; $('gRadar').href = GAMES.radar.url;
+$('gConvoy').href = GAMES.convoy.url; $('gRadar').href = GAMES.radar.url; $('gFilm').href = GAMES.film.url;
 const FRESH = 12 * 3600 * 1000; // 12 小時內老師打開過的才算「今天的遊戲」
-const L = { convoy: null, radar: null }; let offset = 0, going = false, got = 0;
+const L = {}; let offset = 0, going = false, got = 0; const N = Object.keys(GAMES).length;
 function decide() {
   if (going) return;
   const now = Date.now() + offset;
-  const c = [['convoy', L.convoy], ['radar', L.radar]].filter(([, v]) => v && v.at && now - v.at < FRESH).sort((a, b) => b[1].at - a[1].at);
-  if (!c.length) { if (got >= 2) { $('msg').className = 'dots'; $('msg').textContent = '等老師打開今天的遊戲'; $('pick').hidden = false; } return; }
+  const c = Object.keys(GAMES).map((k) => [k, L[k]]).filter(([, v]) => v && v.at && now - v.at < FRESH).sort((a, b) => b[1].at - a[1].at);
+  if (!c.length) { if (got >= N) { $('msg').className = 'dots'; $('msg').textContent = '等老師打開今天的遊戲'; $('pick').hidden = false; } return; }
   const g = GAMES[c[0][0]]; going = true;
   $('msg').className = ''; $('msg').textContent = `今天的遊戲：${g.name}，正在進入…`; $('pick').hidden = true;
   setTimeout(() => location.replace(g.url), 700);
 }
-setTimeout(() => { if (!going && got < 2) { $('msg').className = ''; $('msg').textContent = '連不上線，請直接選遊戲：'; $('pick').hidden = false; } }, 8000);
+setTimeout(() => { if (!going && got < N) { $('msg').className = ''; $('msg').textContent = '連不上線，請直接選遊戲：'; $('pick').hidden = false; } }, 8000);
 try {
   const A = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
   const D = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js');
   const db = D.getDatabase(A.initializeApp(CFG));
   D.onValue(D.ref(db, '.info/serverTimeOffset'), (s) => { offset = s.val() || 0; });
-  D.onValue(D.ref(db, 'sr/lobby'), (s) => { L.convoy = s.val(); got++; decide(); });
-  D.onValue(D.ref(db, 'rd/lobby'), (s) => { L.radar = s.val(); got++; decide(); });
+  for (const k in GAMES) D.onValue(D.ref(db, GAMES[k].key + '/lobby'), (s) => { L[k] = s.val(); got++; decide(); });
 } catch (e) { $('msg').className = ''; $('msg').textContent = '連不上線，請直接選遊戲：'; $('pick').hidden = false; }
 </script>
 </body>
